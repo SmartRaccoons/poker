@@ -54,6 +54,27 @@ describe 'Rank', ->
       assert.deepEqual([3, 11], Rank::_kicker(['J', '3', '2'], 2))
       assert.deepEqual([3, 11], Rank::_kicker(['J', '3'], 5))
 
+    it 'go over combinations', ->
+      spy = sinon.spy()
+      spy2 = sinon.spy()
+      spy3 = sinon.spy()
+      class Rank2 extends Rank
+      Rank2::royal_flush = ->
+        spy()
+        return false
+      Rank2::straight_flush = ->
+        spy2()
+        return [0, 1]
+      Rank2::high_card = ->
+        spy3()
+        return [1, 2]
+      r = new Rank2(['Ac', 'Kc'])
+      assert.deepEqual([1, 0, 1], r._hand_rank)
+      assert.equal('straight_flush', r._hand_message)
+      assert.equal(1, spy.callCount)
+      assert.equal(1, spy2.callCount)
+      assert.equal(0, spy3.callCount)
+
 
   describe 'royal_flush', ->
     it 'success', ->

@@ -3,14 +3,14 @@ _suits = ['c', 's', 'h', 'd'] #Clubs (c) Spades (s) Hearts (h) Diamonds (d)
 
 
 module.exports.Rank = class Rank
-  _combination: [
+  _combinations: [
     'royal_flush'
     'straight_flush'
     'four_of_a_kind'
     'full_house'
     'flush'
     'straight'
-    'three_of_king'
+    'three_of_kind'
     'two_pair'
     'one_pair'
     'high_card'
@@ -25,6 +25,12 @@ module.exports.Rank = class Rank
       suited = @_hand.filter (h)-> h[1] is suit
       if suited.length >= 5
         @_flush = suited.map (h)-> h[0]
+    for combination, i in @_combinations
+      hand_rank = @[combination]()
+      if hand_rank
+        @_hand_rank = [i].concat(hand_rank)
+        @_hand_message = combination
+        break
 
   _straight: (cards)->
     cards_uniq = cards.filter (item, pos)-> cards.indexOf(item) is pos
