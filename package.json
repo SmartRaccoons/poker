@@ -1,0 +1,13 @@
+{
+  "name": "Poker",
+  "version": "0.0.1",
+  "author": {
+    "name": "raccoons.lv"
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "proxyquire": "^2.0.1",
+    "sinon": "^4.5.0"
+  }
+}
