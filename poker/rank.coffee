@@ -32,6 +32,20 @@ module.exports.Rank = class Rank
         @_hand_message = combination
         break
 
+  compare: (hands...)->
+    best = [0]
+    hands.forEach (hand, i)->
+      if i is 0
+        return
+      for rank, j in hand
+        if rank < hands[best[0]][j]
+          best = [i]
+          return
+        if rank > hands[best[0]][j]
+          return
+      best.push i
+    return best
+
   _straight: (cards)->
     cards_uniq = cards.filter (item, pos)-> cards.indexOf(item) is pos
     cards_total = cards_uniq.length

@@ -76,6 +76,20 @@ describe 'Rank', ->
       assert.equal(0, spy3.callCount)
 
 
+  describe 'compare', ->
+    it '1 dimension', ->
+      assert.deepEqual([0], Rank::compare([0, 2], [1, 1]))
+
+    it '2 dimension', ->
+      assert.deepEqual([1], Rank::compare([1, 3, 3], [1, 2, 4]))
+
+    it 'no winner', ->
+      assert.deepEqual([0, 1], Rank::compare([1, 3, 2], [1, 3, 2]))
+
+    it 'more hands', ->
+      assert.deepEqual([1, 2], Rank::compare([1, 3, 4], [1, 3, 2], [1, 3, 2]))
+
+
   describe 'royal_flush', ->
     it 'success', ->
       r = new Rank(['Ac', 'Kc', 'Ah', 'Qc', 'Jc', 'Tc'])
