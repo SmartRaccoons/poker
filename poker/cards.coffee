@@ -1,13 +1,23 @@
-_ranks = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2']
-_suits = ['c', 's', 'h', 'd'] #Clubs (c) Spades (s) Hearts (h) Diamonds (d)
+Rank = require('./rank')
+
+
+_ranks = Rank._ranks
+_suits = Rank._suits
+
+
+shuffle = (array) ->
+  for i in [0...array.length]
+    j = Math.floor(Math.random() * (i + 1))
+    [array[i], array[j]] = [array[j], array[i]]
+  array
+
+_deck = _ranks.reduce (result, item)->
+  result.concat _suits.map (s)-> "#{item}#{s}"
+, []
 
 
 module.exports.Cards = class Cards
-  _ranks: _ranks
-  _suits: _suits
-  _deck: _ranks.reduce (result, item)->
-    result.concat _suits.map (s)-> "#{item}#{s}"
-  , []
+  shuffle: ->
+    @_deck = shuffle _deck.slice()
 
-  # rank: (cards)->
-  #
+  pop: -> @_deck.pop()

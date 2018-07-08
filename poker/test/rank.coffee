@@ -1,4 +1,3 @@
-events = require('events')
 assert = require('assert')
 sinon = require('sinon')
 

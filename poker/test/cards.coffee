@@ -1,4 +1,3 @@
-events = require('events')
 assert = require('assert')
 sinon = require('sinon')
 
@@ -12,9 +11,14 @@ describe 'Cards', ->
     cards = new Cards()
 
   describe 'default', ->
-    it 'deck', ->
+
+    it 'shuffle', ->
+      cards.shuffle()
       assert.equal 52, cards._deck.length
-      assert.equal 'Ac', cards._deck[0]
-      assert.equal 'As', cards._deck[1]
-      assert.equal '2h', cards._deck[50]
-      assert.equal '2d', cards._deck[51]
+      assert.equal 0, cards._deck.filter( (item, pos)-> cards._deck.indexOf(item) isnt pos ).length
+      assert.equal 1, cards._deck.filter( (item)-> item is 'Ac' ).length
+
+    it 'pop', ->
+      cards.shuffle()
+      assert.equal(2, cards.pop().length)
+      assert.equal 51, cards._deck.length
