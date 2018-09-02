@@ -2,7 +2,7 @@ assert = require('assert')
 sinon = require('sinon')
 
 
-Rank = require('../rank').Rank
+Rank = require('../rank').PokerRank
 
 
 describe 'Rank', ->
@@ -84,16 +84,16 @@ describe 'Rank', ->
       assert.equal(-1, Rank::_compare_hands([1, 1, 2], [1, 1, 1]))
 
     it '1 dimension', ->
-      assert.deepEqual([ [0], [1] ], Rank::compare([0, 2], [1, 1]))
+      assert.deepEqual([ [0], [1] ], Rank::compare( [ [0, 2], [1, 1] ] ))
 
     it '2 dimension', ->
-      assert.deepEqual([ [1], [0] ], Rank::compare([1, 3, 3], [1, 2, 4]))
+      assert.deepEqual([ [1], [0] ], Rank::compare( [ [1, 3, 3], [1, 2, 4] ] ))
 
     it 'no winner', ->
-      assert.deepEqual([ [0, 1] ], Rank::compare([1, 3, 2], [1, 3, 2]))
+      assert.deepEqual([ [0, 1] ], Rank::compare( [ [1, 3, 2], [1, 3, 2] ] ))
 
     it 'more hands', ->
-      assert.deepEqual([ [1, 2], [0, 3], [4] ], Rank::compare([1, 3, 4], [1, 3, 2], [1, 3, 2], [1, 3, 4], [1, 4]))
+      assert.deepEqual([ [1, 2], [0, 3], [4] ], Rank::compare( [ [1, 3, 4], [1, 3, 2], [1, 3, 2], [1, 3, 4], [1, 4] ] ))
 
 
   describe 'royal_flush', ->

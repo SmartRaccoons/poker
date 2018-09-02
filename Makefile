@@ -1,3 +1,3 @@
 test_server :
 	 # --watch --watch-extensions coffee
-	mocha --reporter dot --require coffee-script/register "./poker/test/*.coffee"
+	./node_modules/mocha/bin/mocha --reporter dot --require coffeescript/register "./poker/test/*.coffee"
