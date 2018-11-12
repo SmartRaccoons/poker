@@ -1,8 +1,8 @@
 Rank = require('./rank')
 
 
-_ranks = Rank._ranks
-_suits = Rank._suits
+_ranks = Rank.PokerRank::_deck_ranks
+_suits = Rank.PokerRank::_deck_suits
 
 
 shuffle = (array) ->
