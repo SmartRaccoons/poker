@@ -75,6 +75,8 @@ module.exports.Poker = class Poker extends events.EventEmitter
     @_players[p.position] = null
     delete @_players_ids[p.id]
 
+  player_remove: (id)-> @_player_remove(@player_get(id))
+
   player_get: (id)-> @players({id})[0]
 
   players: (filter)->

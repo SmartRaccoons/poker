@@ -214,6 +214,15 @@ describe 'Poker', ->
       assert.deepEqual({id: 5, chips_last: 200, position: 1}, spy.getCall(0).args[0])
       assert.deepEqual({}, p._players_ids)
 
+    it 'player_remove', ->
+      p.player_get = sinon.fake.returns('p')
+      p._player_remove = sinon.spy()
+      p.player_remove(5)
+      assert.equal(1, p.player_get.callCount)
+      assert.equal(5, p.player_get.getCall(0).args[0])
+      assert.equal(1, p._player_remove.callCount)
+      assert.equal('p', p._player_remove.getCall(0).args[0])
+
     it 'players', ->
       p._players = [null, 'p']
       assert.deepEqual(['p'], p.players())
