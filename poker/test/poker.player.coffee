@@ -242,6 +242,9 @@ describe 'Player', ->
       assert.deepEqual(['call', 5], commands[1])
       assert.equal(2, commands.length)
 
+    it 'bet (bet_max: 0)', ->
+      assert.equal('bet', u.commands({bet_max: 0})[1][0])
+
     it 'sitout', ->
       u.on 'sit', spy
       u.sit({out: true})
@@ -262,7 +265,7 @@ describe 'Player', ->
 
   describe 'turn', ->
     beforeEach ->
-      u.commands = sinon.fake.returns([['check'], ['call', 30], ['raise', 40, 500]])
+      u.commands = sinon.fake.returns([['check'], ['call', 30], ['raise', 40, 500], ['bet', 40, 500]])
       u.bet = sinon.fake.returns(3)
       u.fold = sinon.spy()
       u._bet = 5
@@ -314,6 +317,13 @@ describe 'Player', ->
       u.turn('', ['raise', 501])
       assert.equal(1, u.bet.callCount)
       assert.deepEqual({bet: 40}, u.bet.getCall(0).args[0])
+
+    it 'bet', ->
+      u.turn('', ['bet', 50])
+      assert.equal(1, u.bet.callCount)
+      assert.deepEqual({bet: 50}, u.bet.getCall(0).args[0])
+      assert.deepEqual({command: 'bet', bet: 3}, spy.getCall(0).args[0])
+      assert.deepEqual([['x'], ['b']], u._turn_history)
 
     it 'fold', ->
       u.fold = false

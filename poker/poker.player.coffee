@@ -100,7 +100,7 @@ module.exports.PokerPlayer = class Player extends events.EventEmitter
         if !(params.length is 3 and bet and (params[1] <= bet <= params[2]))
           bet = params[1]
         bet_change = @bet({bet})
-    }[command[0]]()
+    }[if command[0] is 'bet' then 'raise' else command[0]]()
     do =>
       if @all_in
         letter = 'a'
@@ -111,7 +111,7 @@ module.exports.PokerPlayer = class Player extends events.EventEmitter
       @_turn_history[@_turn_history.length - 1].push letter
     @emit 'turn', Object.assign({
       command: if @all_in then 'all_in' else command[0]
-      }, if ['call', 'raise'].indexOf(command[0]) >= 0 then {bet: bet_change})
+      }, if ['call', 'raise', 'bet'].indexOf(command[0]) >= 0 then {bet: bet_change})
     return true
 
   commands: ({bet_max, bet_raise})->
@@ -124,7 +124,7 @@ module.exports.PokerPlayer = class Player extends events.EventEmitter
       if call < 0
         call = 0
       raise = call + bet_raise
-      commands.push ['raise'].concat( if raise > @chips then [@chips] else [raise, @chips] )
+      commands.push [if bet_max is 0 then 'bet' else 'raise'].concat( if raise > @chips then [@chips] else [raise, @chips] )
     return commands
 
   toJSON: ->
