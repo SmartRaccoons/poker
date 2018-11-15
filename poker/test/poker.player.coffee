@@ -135,11 +135,9 @@ describe 'Player', ->
     it 'bet_return', ->
       u.all_in = true
       u.on 'bet_return', spy
-      u._bet = 10
       u.chips = 20
       u.bet_return({bet: 5})
       assert.equal(false, u.all_in)
-      assert.equal(5, u._bet)
       assert.equal(25, u.chips)
       assert.equal(1, spy.callCount)
       assert.deepEqual({bet: 5}, spy.getCall(0).args[0])

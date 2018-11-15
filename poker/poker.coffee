@@ -148,9 +148,10 @@ module.exports.Poker = class Poker extends events.EventEmitter
     , @options.delay_round
 
   _progress_pot: ->
-    @_board.pot(
-      @players().map (player)-> { bet: player.bet_pot(), fold: player.fold, position: player.position}
-    )
+    players = @players().map (player)-> { bet: player.bet_pot(), fold: player.fold, position: player.position}
+    if players.filter( (p)-> p.bet > 0 ).length is 0
+      return
+    @_board.pot players
 
   _progress_action: ->
     if @_showdown_call or @players({fold: false}).length < 2

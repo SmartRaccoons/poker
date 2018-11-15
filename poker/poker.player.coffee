@@ -57,7 +57,6 @@ module.exports.PokerPlayer = class Player extends events.EventEmitter
 
   bet_return: ({bet})->
     @all_in = false
-    @_bet -= bet
     @chips += bet
     @emit 'bet_return', {bet}
 
