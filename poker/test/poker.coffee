@@ -639,11 +639,6 @@ describe 'Poker', ->
       assert.equal(1, pot.callCount)
       assert.deepEqual([{position: 0, fold: true, bet: 9}, {position: 2, fold: false, bet: 10}], pot.getCall(0).args[0])
 
-    it 'zero bets', ->
-      player2.bet_pot = sinon.fake.returns(0)
-      p._progress_pot()
-      assert.deepEqual([{bet: 9, fold: true, position: 0}], pot.getCall(0).args[0])
-
 
   describe 'round end', ->
     pot_devide = null

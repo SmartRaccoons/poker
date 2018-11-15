@@ -150,7 +150,6 @@ module.exports.Poker = class Poker extends events.EventEmitter
   _progress_pot: ->
     @_board.pot(
       @players().map (player)-> { bet: player.bet_pot(), fold: player.fold, position: player.position}
-      .filter (params)-> params.bet > 0
     )
 
   _progress_action: ->

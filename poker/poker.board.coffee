@@ -41,7 +41,12 @@ module.exports.PokerBoard = class Board extends events.EventEmitter
       return
     bets.sort (p1, p2)-> p1.bet - p2.bet
     [0...bets.length]
-      .map (i)->
+      .map (i)=>
+        if bets[i].fold
+          @_pot.forEach (p)->
+            index = p.positions.indexOf bets[i].position
+            if index >= 0
+              p.positions.splice(index, 1)
         bet = bets[i].bet
         if bet is 0
           return null

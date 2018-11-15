@@ -125,6 +125,11 @@ describe 'Board', ->
         {pot: 10, positions: [0, 2], contributors: [{position: 0, bet: 5}, {position: 2, bet: 5}] }
       ], b._pot)
 
+    it 'combine (folded)', ->
+      b._pot = [{pot: 30, positions: [0, 1, 2], contributors: [{position: 0, bet: 10}, {position: 1, bet: 10}, {position: 2, bet: 10}] }]
+      b.pot([{bet: 20, position: 0}, {bet: 20, position: 1}, {bet: 0, position: 2, fold: true}])
+      assert.deepEqual([{pot: 70, positions: [0, 1], contributors: [{bet: 30, position: 0}, {bet: 30, position: 1}, {bet: 10, position: 2}] }], b._pot)
+
     it 'fold', ->
       b.pot([{bet: 20, position: 0}, {bet: 20, position: 1}, {bet: 10, position: 2, fold: true}])
       assert.deepEqual([{pot: 50, positions: [0, 1], contributors: [{bet: 20, position: 0}, {bet: 20, position: 1}, {bet: 10, position: 2}] }], b._pot)
