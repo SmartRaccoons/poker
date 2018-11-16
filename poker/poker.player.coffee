@@ -113,17 +113,20 @@ module.exports.PokerPlayer = class Player extends events.EventEmitter
       }, if ['call', 'raise', 'bet'].indexOf(command[0]) >= 0 then {bet: bet_change})
     return true
 
-  commands: ({bet_max, bet_raise})->
+  commands: ({bet_max, bet_raise, stacks})->
     commands = []
     commands.push(if @_bet >= bet_max then ['check'] else ['fold'])
+    if stacks is 1 and @_bet >= bet_max
+      return commands
     call = bet_max - @_bet
     if @_bet < bet_max
       commands.push(['call', if call > @chips then @chips else call])
-    if call < @chips
-      if call < 0
-        call = 0
-      raise = call + bet_raise
-      commands.push [if bet_max is 0 then 'bet' else 'raise'].concat( if raise > @chips then [@chips] else [raise, @chips] )
+    if stacks is 1 or call >= @chips
+      return commands
+    if call < 0
+      call = 0
+    raise = call + bet_raise
+    commands.push [if bet_max is 0 then 'bet' else 'raise'].concat( if raise > @chips then [@chips] else [raise, @chips] )
     return commands
 
   toJSON: ->

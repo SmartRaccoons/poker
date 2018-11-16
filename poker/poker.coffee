@@ -209,7 +209,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
 
   _emit_ask: (player)->
     @_waiting = player
-    if @_players[@_waiting].sitout
+    if @_players[@_waiting].sitout or @_waiting_commands().length is 1
       return @turn()
     @_activity()
     @emit.apply(@, ['ask'].concat(@_get_ask()))
@@ -218,6 +218,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
     @_players[@_waiting].commands({
       bet_max: @_board.bet_max()
       bet_raise: @_board.bet_raise()
+      stacks: @players({fold: false, all_in: false}).length
     })
 
   turn: (command)->

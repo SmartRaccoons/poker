@@ -243,6 +243,14 @@ describe 'Player', ->
     it 'bet (bet_max: 0)', ->
       assert.equal('bet', u.commands({bet_max: 0})[1][0])
 
+    it 'bet (auto check)', ->
+      u._bet = 20
+      assert.deepEqual([['check']], u.commands({bet_max: 10, stacks: 1}))
+
+    it 'bet (check or call)', ->
+      u._bet = 2
+      assert.deepEqual([['fold'], ['call', 8]], u.commands({bet_max: 10, stacks: 1}))
+
     it 'sitout', ->
       u.on 'sit', spy
       u.sit({out: true})
