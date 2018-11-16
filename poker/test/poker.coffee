@@ -363,6 +363,7 @@ describe 'Poker', ->
       p._emit_ask(1)
       assert.equal(1, p._waiting_commands.callCount)
       assert.equal(1, p.turn.callCount)
+      assert.deepEqual(['check'], p.turn.getCall(0).args[0])
 
     it '_emit_ask (sitout)', ->
       player1.sitout = true
