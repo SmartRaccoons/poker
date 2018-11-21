@@ -99,7 +99,7 @@ module.exports.PokerBoard = class Board extends events.EventEmitter
           if total > 1
             pot.winners[0].win += pot.pot - win * total
         pot.showdown = []
-        if winners_total <= 1
+        if winners_total <= 1 or pot.positions.length is 1
           return pot
         max_position = Math.max.apply(null, pot.positions)
         show = if pot.positions.indexOf(@_bet_raise_position) >= 0 then @_bet_raise_position else @_show_first

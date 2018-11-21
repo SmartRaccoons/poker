@@ -229,6 +229,12 @@ describe 'Board', ->
       pots = b.pot_devide( [ [2] ])
       assert.deepEqual([], pots[0].showdown)
 
+    it 'showdown (one player in pot)', ->
+      b._pot = [{pot: 20, positions: [0]}]
+      b._show_first = 0
+      pots = b.pot_devide( [ [2, 1, 0] ])
+      assert.deepEqual([], pots[0].showdown)
+
     it 'showdown (not in winners)', ->
       b._pot = [{pot: 20, positions: [0, 2, 3, 4]}]
       b._show_first = 0

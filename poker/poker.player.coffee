@@ -123,10 +123,8 @@ module.exports.PokerPlayer = class Player extends events.EventEmitter
       commands.push(['call', if call > @chips then @chips else call])
     if stacks is 1 or call >= @chips
       return commands
-    if call < 0
-      call = 0
     raise = call + bet_raise
-    commands.push [if bet_max is 0 then 'bet' else 'raise'].concat( if raise > @chips then [@chips] else [raise, @chips] )
+    commands.push [if bet_max is 0 then 'bet' else 'raise'].concat( if raise >= @chips then [@chips] else [raise, @chips] )
     return commands
 
   toJSON: ->

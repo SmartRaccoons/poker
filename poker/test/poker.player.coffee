@@ -211,11 +211,6 @@ describe 'Player', ->
 
   describe 'commands', ->
 
-    it 'bet (small)', ->
-      u._bet = 20
-      assert.deepEqual(['check'], u.commands({bet_max: 10})[0])
-      assert.deepEqual(['raise', 5, 50], u.commands({bet_max: 10, bet_raise: 5})[1])
-
     it 'bet (same)', ->
       u._bet = 10
       assert.deepEqual(['check'], u.commands({bet_max: 10})[0])
@@ -231,7 +226,7 @@ describe 'Player', ->
       u.chips = 30
       assert.deepEqual(['fold'], u.commands({bet_max: 20})[0])
       assert.deepEqual(['call', 5], u.commands({bet_max: 20})[1])
-      assert.deepEqual(['raise', 30], u.commands({bet_max: 20, bet_raise: 30})[2])
+      assert.deepEqual(['raise', 30], u.commands({bet_max: 20, bet_raise: 25})[2])
 
     it 'bet (chips not enough)', ->
       u.chips = 5
