@@ -238,8 +238,13 @@ module.exports.Poker = class Poker extends events.EventEmitter
 
   sit: ({user_id, out})->
     @_players[@_players_ids[user_id]].sit({out})
+    if out and @waiting() is user_id
+      @turn()
 
-  waiting: -> @_players[@_waiting].id
+  waiting: ->
+    if !@_timeout_activity_callback
+      return null
+    @_players[@_waiting].id
 
   toJSON: ->
     json =

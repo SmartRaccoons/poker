@@ -453,6 +453,17 @@ describe 'Poker', ->
       assert.equal(1, player1.sit.callCount)
       assert.deepEqual({out: true}, player1.sit.getCall(0).args[0])
 
+    it 'sit (turn active)', ->
+      p.turn = sinon.spy()
+      p.waiting = -> 2
+      p.sit({user_id: 5, out: true})
+      assert.equal(0, p.turn.callCount)
+      p.sit({user_id: 5, out: false})
+      assert.equal(0, p.turn.callCount)
+      p.waiting = -> 5
+      p.sit({user_id: 5, out: true})
+      assert.equal(1, p.turn.callCount)
+
     it 'turn', ->
       p.turn('check')
       assert.equal(0, player1.sit.callCount)
@@ -469,8 +480,11 @@ describe 'Poker', ->
       assert.equal(0, p._activity_clear.callCount)
 
     it 'waiting', ->
+      p._timeout_activity_callback = 's'
       player1.id = 5
       assert.equal(5, p.waiting())
+      p._timeout_activity_callback = null
+      assert.equal(null, p.waiting())
 
     it 'default command', ->
       p._waiting_commands = sinon.fake.returns([['boom']])
