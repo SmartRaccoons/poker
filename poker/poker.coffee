@@ -70,10 +70,10 @@ module.exports.Poker = class Poker extends events.EventEmitter
       @start()
 
   _player_remove: (p)->
-    player = @_players[p.position]
-    @emit 'player:remove', {id: p.id, chips_last: player.chips_last, position: p.position}
-    @_players[p.position] = null
-    delete @_players_ids[p.id]
+    player = @_players[p.options.position]
+    @emit 'player:remove', {id: p.options.id, chips_last: player.options.chips_last, position: p.options.position}
+    @_players[p.options.position] = null
+    delete @_players_ids[p.options.id]
 
   player_remove: (id)-> @_player_remove(@player_get(id))
 
@@ -100,13 +100,13 @@ module.exports.Poker = class Poker extends events.EventEmitter
       @_blinds_position[0] = @_player_position_next(@_dealer)
     @_waiting = @_blinds_position[1] = @_player_position_next(@_blinds_position[0])
     @_board.reset({blinds: @_blinds.slice(0), show_first: @_player_position_next(@_dealer)})
-    [0, 1].forEach (id)=> @_players[@_blinds_position[id]].bet({bet: @_blinds[id], blind: true})
+    [0, 1].forEach (id)=> @_players[@_blinds_position[id]].bet({bet: @_blinds[id], command: 'blind'})
     @emit 'round', {
       dealer: @_dealer
-      blinds: @_blinds_position.map (position)=> {position, bet: @_players[position]._bet}
+      blinds: @_blinds_position.map (position)=> {position, bet: @_players[position].options.bet, command: @_players[position].options.command}
     }, {
       cards: @players().reduce( (acc, p)->
-        acc[p.id] = p.cards
+        acc[p.options.id] = p.options.cards
         return acc
       , {})
     }
@@ -116,11 +116,11 @@ module.exports.Poker = class Poker extends events.EventEmitter
 
   _showdown: ->
     @emit 'showdown', @players({fold: false}).map (p)->
-      {position: p.position, cards: p.showdown()}
+      {position: p.options.position, cards: p.showdown()}
 
   _round_end: ->
     players = @players({fold: false})
-      .map (p)-> {rank: p.rank().rank, position: p.position}
+      .map (p)-> {rank: p.rank().rank, position: p.options.position}
     if players.length > 1
       players_ranked = Rank::compare(players.map (p)-> p.rank)
       .map (winners)-> winners.map (i)-> players[i].position
@@ -137,7 +137,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
           showdown: p.showdown.map (position)=>
             { 'cards': @_players[position].showdown(), position }
         })
-      players_remove: players_remove.map (p)-> {id: p.id, position: p.position, chips_last: p.chips_last}
+      players_remove: players_remove.map (p)-> {id: p.options.id, position: p.options.position, chips_last: p.options.chips_last}
     }
     setTimeout =>
       players_remove.forEach (p)=> @_player_remove(p)
@@ -148,7 +148,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
     , @options.delay_round
 
   _progress_pot: ->
-    players = @players().map (player)-> { bet: player.bet_pot(), fold: player.fold, position: player.position}
+    players = @players().map (player)-> { bet: player.bet_pot(), fold: player.fold(), position: player.options.position}
     if players.filter( (p)-> p.bet > 0 ).length is 0
       return
     @_board.pot players
@@ -203,7 +203,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
       position: @_waiting
       timeout: @_activity_timeout_left()
     }, {
-      id: @_players[@_waiting].id
+      id: @_players[@_waiting].options.id
       commands: @_waiting_commands()
     }]
 
@@ -212,7 +212,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
     commands = @_waiting_commands()
     if commands.length is 1
       return @turn(commands[0])
-    if @_players[@_waiting].sitout
+    if @_players[@_waiting].options.sitout
       return @turn()
     @_activity()
     @emit.apply(@, ['ask'].concat(@_get_ask()))
@@ -244,7 +244,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
   waiting: ->
     if !@_timeout_activity_callback
       return null
-    @_players[@_waiting].id
+    @_players[@_waiting].options.id
 
   toJSON: ->
     json =
