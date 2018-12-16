@@ -96,10 +96,11 @@ module.exports.PokerPlayer = class Player extends Default
 
   progress: ({cards})->
     @options.turn_history.push([])
-    @options_update
+    @options_update Object.assign({
       cards_board: @options.cards_board.concat(cards)
       turn_history: @options.turn_history
       talked: false
+    }, if ['fold', 'all_in'].indexOf(@options.command) < 0 then {command: null})
 
   action_require: (bet_max)-> !@fold() and !@all_in() and (!@options.talked or @options.bet < bet_max)
 

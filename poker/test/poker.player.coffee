@@ -142,11 +142,20 @@ describe 'Player', ->
 
     it 'progress', ->
       u.on 'win', spy
+      u.options.command = 'raise'
       u.options.cards_board = [2]
       u.options.turn_history = [['x']]
       u.progress({cards: [5]})
       assert.equal(1, up.callCount)
-      assert.deepEqual({turn_history: [['x'], []], cards_board: [2, 5], talked: false}, up.getCall(0).args[0])
+      assert.deepEqual({command: null, turn_history: [['x'], []], cards_board: [2, 5], talked: false}, up.getCall(0).args[0])
+
+    it 'progress (command all_in/fold)', ->
+      u.options.command = 'all_in'
+      u.progress({cards: [5]})
+      assert.ok(Object.keys(up.getCall(0).args[0]).indexOf('command') < 0)
+      u.options.command = 'fold'
+      u.progress({cards: [5]})
+      assert.ok(Object.keys(up.getCall(1).args[0]).indexOf('command') < 0)
 
     it 'action_require (bet less)', ->
       u.options.bet = 9
