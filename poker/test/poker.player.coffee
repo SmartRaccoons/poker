@@ -304,7 +304,7 @@ describe 'Player', ->
       u.options.cards_board = [3, 4]
       fn['cards,cards_board'].bind(u)()
       assert.equal(1, rank_constructor.callCount)
-      assert.deepEqual([1, 2, 3, 4], rank_constructor.getCall(0).args[0])
+      assert.deepEqual([3, 4, 1, 2], rank_constructor.getCall(0).args[0])
       assert.equal(1, up.callCount)
       assert.equal('rank', up.getCall(0).args[0].rank.rank)
       assert.equal('mes', up.getCall(0).args[0].rank.message)

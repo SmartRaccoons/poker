@@ -44,6 +44,9 @@ describe 'Rank', ->
     it '_match', ->
       assert.deepEqual(['A', 'J'], Rank::_match(['A', 'K', 'K', 'J'], 'K', 2))
 
+    it '_match (2 in 3)', ->
+      assert.deepEqual(['K', 'J'], Rank::_match(['K', 'K', 'K', 'J'], 'K', 2))
+
     it '_match (fail)', ->
       assert.equal(false, Rank::_match(['A', 'K', 'K', 'J'], 'K', 3))
 

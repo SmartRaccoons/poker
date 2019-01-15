@@ -32,7 +32,7 @@ module.exports.PokerPlayer = class Player extends Default
 
   _options_bind:
     'cards,cards_board': ->
-      cards = @options.cards.concat(@options.cards_board)
+      cards = @options.cards_board.concat(@options.cards)
       rank = null
       if cards.length isnt 0
         r = new Rank(cards)

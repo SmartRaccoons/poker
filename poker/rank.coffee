@@ -69,8 +69,15 @@ module.exports.PokerRank = class PokerRank
     return false
 
   _match: (cards, rank, times)->
-    if cards.filter( (card)-> card is rank ).length is times
-      return cards.filter (card)-> card isnt rank
+    leftovers = []
+    match = []
+    for card, i in cards
+      if card is rank
+        match.push card
+        if match.length is times
+          return leftovers.concat cards.slice(i + 1)
+      else
+        leftovers.push card
     return false
 
   _kicker: (cards, kickers)->
