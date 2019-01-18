@@ -49,9 +49,9 @@ module.exports.PokerOdds = class PokerOdds
     cards_used = hand.concat(board)
     cards_left = @cards_all.filter (c)-> cards_used.indexOf(c) < 0
     combinations = {}
-    Rank::_combinations.forEach (c)-> combinations[c] = {}
-    [2...@_flop.indexOf(board.length)].forEach (flop)=>
-      Object.keys(combinations).forEach (c)-> combinations[c][flop] = 0
+    Rank::_combinations.forEach (c)-> combinations[c] = []
+    [2...@_flop.indexOf(board.length)].forEach (flop, i)=>
+      Object.keys(combinations).forEach (c)-> combinations[c][i] = 0
       total = 0
       combination_iter = combinations_gen cards_left, @_flop[flop] - board.length
       loop
@@ -60,9 +60,9 @@ module.exports.PokerOdds = class PokerOdds
           break
         cards = next.value
         rank = new Rank board.concat(cards).concat(hand)
-        combinations[rank._hand_message][flop]++
+        combinations[rank._hand_message][i]++
         total++
-      Object.keys(combinations).forEach (c)=> combinations[c][flop] = @percent(combinations[c][flop] / total)
+      Object.keys(combinations).forEach (c)=> combinations[c][i] = @percent(combinations[c][i] / total)
     combinations
 
   calculate: (hands, board)->
