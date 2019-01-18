@@ -10,7 +10,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
   _options_default:
     players: [2, 9]
     timeout: 10
-    delay_progress: 1500
+    delay_progress: 1000
     delay_round: 3000
     blinds: [1, 2]
     autostart: false

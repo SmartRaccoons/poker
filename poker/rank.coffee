@@ -1,19 +1,22 @@
+combinations_examples = [
+  ['royal_flush', ['As', 'Ks', 'Qs', 'Js', 'Ts'] ]
+  ['straight_flush', ['9d', '8d', '7d', '6d', '5d'] ]
+  ['four_of_a_kind', ['Ac', 'As', 'Ah', 'Ad', '4s'] ]
+  ['full_house', ['Qs', 'Qh', 'Qd', 'Jc', 'Jd'] ]
+  ['flush', ['Ah', 'Jh', '9h', '6h', '3h']]
+  ['straight', ['9c', '8s', '7h', '6d', '5c']]
+  ['three_of_kind', ['2h', '2d', '2c', '5s', 'Qc'], 3]
+  ['two_pair', ['Ac', 'Ah', 'Ks', 'Kd', '9s'], 4]
+  ['one_pair', ['As', 'Ad', '8c', 'Ts', '2h'], 2]
+  ['high_card', ['As', '5c', 'Ts', '9h', '2d'], 1]
+]
+
 module.exports.PokerRank = class PokerRank
   _deck_ranks: ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2']
   _deck_suits: ['c', 's', 'h', 'd'] #Clubs (c) Spades (s) Hearts (h) Diamonds (d)
 
-  _combinations: [
-    'royal_flush'
-    'straight_flush'
-    'four_of_a_kind'
-    'full_house'
-    'flush'
-    'straight'
-    'three_of_kind'
-    'two_pair'
-    'one_pair'
-    'high_card'
-  ]
+  _combinations_examples: combinations_examples
+  _combinations: combinations_examples.map (v)-> v[0]
   constructor: (hand)->
     @_hand = hand
     .map (card)=> [card.substr(0, 1), card.substr(1, 1)]
