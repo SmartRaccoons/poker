@@ -1,7 +1,7 @@
 combinations_examples = [
   ['royal_flush', ['As', 'Ks', 'Qs', 'Js', 'Ts'] ]
   ['straight_flush', ['9d', '8d', '7d', '6d', '5d'] ]
-  ['four_of_a_kind', ['Ac', 'As', 'Ah', 'Ad', '4s'] ]
+  ['four_of_a_kind', ['Ac', 'As', 'Ah', 'Ad', '4s'], 4]
   ['full_house', ['Qs', 'Qh', 'Qd', 'Jc', 'Jd'] ]
   ['flush', ['Ah', 'Jh', '9h', '6h', '3h']]
   ['straight', ['9c', '8s', '7h', '6d', '5c']]
