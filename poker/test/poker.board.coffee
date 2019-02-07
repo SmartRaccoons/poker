@@ -252,3 +252,24 @@ describe 'Board', ->
       b._show_first = 0
       pots = b.pot_devide( [ [3], [0, 1], [2] ])
       assert.deepEqual([0, 1, 3], pots[0].showdown)
+
+    it 'rake', ->
+      b._pot = [{pot: 20, positions: [0]}]
+      pots = b.pot_devide( [ [0] ], {percent: 5, cap: 100})
+      assert.equal(1, pots[0].rake)
+      assert.equal(19, pots[0].winners[0].win)
+
+    it 'rake (not enough)', ->
+      b._pot = [{pot: 19, positions: [0]}]
+      pots = b.pot_devide( [ [0] ], {percent: 5, cap: 100})
+      assert.ok(Object.keys(pots[0]).indexOf('rake') is -1)
+      assert.equal(19, pots[0].winners[0].win)
+
+    it 'rake (cap)', ->
+      b._pot = [{pot: 20, positions: [0]}, {pot: 60, positions: [0]}, {pot: 20, positions: [0]}]
+      pots = b.pot_devide( [ [0] ], {percent: 5, cap: 3})
+      assert.equal(1, pots[0].rake)
+      assert.equal(19, pots[0].winners[0].win)
+      assert.equal(2, pots[1].rake)
+      assert.equal(58, pots[1].winners[0].win)
+      assert.ok(Object.keys(pots[2]).indexOf('rake') is -1)

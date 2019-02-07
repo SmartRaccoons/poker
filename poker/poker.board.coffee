@@ -79,7 +79,7 @@ module.exports.PokerBoard = class Board extends events.EventEmitter
         @_pot.push pot
     @emit 'pot:update', @_pot
 
-  pot_devide: (winners_order)->
+  pot_devide: (winners_order, rake)->
     winners_total = winners_order.reduce ((acc, v)-> acc + v.length), 0
     winners_all = winners_order.reduce ((acc, v)-> acc.concat(v)), []
     winners_index = (i)->
@@ -87,17 +87,29 @@ module.exports.PokerBoard = class Board extends events.EventEmitter
         if winners_list.indexOf(i) >= 0
           return j
       return winners_total + 1
+    rake_cap = if rake then rake.cap else 0
     @_pot.map (pot)=>
+      pot_chips = pot.pot
+      if rake
+        do =>
+          rake_chips = Math.floor(pot_chips * rake.percent / 100)
+          if rake_chips is 0 or rake_cap is 0
+            return
+          if rake_cap < rake_chips
+            rake_chips = rake_cap
+          rake_cap -= rake_chips
+          pot_chips -= rake_chips
+          pot.rake = rake_chips
       for winners_list, j in winners_order
         winners = pot.positions.filter (position)-> winners_list.indexOf(position) >= 0
         if winners.length is 0
           continue
         do ->
           total = winners.length
-          win = Math.round( pot.pot / total )
+          win = Math.round( pot_chips / total )
           pot.winners = winners.map (position)-> {position, win}
           if total > 1
-            pot.winners[0].win += pot.pot - win * total
+            pot.winners[0].win += pot_chips - win * total
         pot.showdown = []
         if winners_total <= 1 or pot.positions.length is 1
           return pot

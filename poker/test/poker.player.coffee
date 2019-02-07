@@ -21,10 +21,12 @@ Player = proxyquire('../poker.player', {
 describe 'Player', ->
   u = null
   spy = null
+  spy2 = null
   up = null
   beforeEach ->
     spy = sinon.spy()
-    u = new Player({id: 2, chips: 50, position: 2})
+    spy2 = sinon.spy()
+    u = new Player({id: 2, chips: 50, position: 2, cards: ['Ah', 'Ac']})
     rank_constructor = sinon.spy()
     u.options_update = up = sinon.spy()
 
@@ -46,15 +48,50 @@ describe 'Player', ->
       u.options.win = 2
       assert.equal(7, u.budget())
 
+    it 'constructor', ->
+      assert.equal 50, u.options.chips_start
+      assert.equal 0, u.options.rounds
+
+    it '_remove_safe', ->
+      u.on 'remove_safe', spy
+      u.fold = -> true
+      u.options.last = true
+      assert.equal true, u._remove_safe()
+      assert.equal 1, spy.callCount
+
+    it '_remove_safe (not last)', ->
+      u.on 'remove_safe', spy
+      u.fold = -> true
+      u.options.last = false
+      assert.equal false, u._remove_safe()
+      assert.equal 0, spy.callCount
+
+    it '_remove_safe (no fold)', ->
+      u.on 'remove_safe', spy
+      u.fold = -> false
+      u.options.last = true
+      assert.equal false, u._remove_safe()
+      assert.equal 0, spy.callCount
+
+    it '_remove_safe (no cards)', ->
+      u.on 'remove_safe', spy
+      u.fold = -> false
+      u.options.last = true
+      u.options.cards = []
+      assert.equal true, u._remove_safe()
+      assert.equal 1, spy.callCount
+
     it 'round', ->
       u.options.chips = 5
       u.options.win = 2
+      u.options.rounds = 2
       u.round('c')
       assert.equal(1, up.callCount)
       assert.equal(0, up.getCall(0).args[0].win)
       assert.equal(7, up.getCall(0).args[0].chips_last)
       assert.equal(7, up.getCall(0).args[0].chips)
       assert.equal('c', up.getCall(0).args[0].cards)
+      assert.equal(3, up.getCall(0).args[0].rounds)
 
     it 'rank', ->
       u.options.rank = 'r'
@@ -175,10 +212,27 @@ describe 'Player', ->
       u.all_in = -> true
       assert.equal(false, u.action_require(10))
 
-    it 'sit', ->
-      u.sit({out: true})
+    it 'action_require (no cards)', ->
+      u.options.cards = []
+      assert.equal(false, u.action_require(10))
+
+    it 'out', ->
+      u.out({out: true})
       assert.equal(1, up.callCount)
-      assert.deepEqual({sitout: true}, up.getCall(0).args[0])
+      assert.deepEqual({out: true}, up.getCall(0).args[0])
+
+    it 'last', ->
+      u.last({last: true})
+      assert.equal(1, up.callCount)
+      assert.deepEqual({last: true}, up.getCall(0).args[0])
+
+    it 'readd', ->
+      u.on 'readd', spy
+      u.readd({chips: 1500})
+      assert.equal(1, up.callCount)
+      assert.deepEqual({last: false, chips: 1500}, up.getCall(0).args[0])
+      assert.equal 1, spy.callCount
+      assert.deepEqual {last: false, chips: 1500}, spy.getCall(0).args[0]
 
     it 'toJSON', ->
       u.options.cards = [1, 2]
@@ -188,7 +242,8 @@ describe 'Player', ->
       assert.equal(2, u.toJSON().id)
       assert.equal(2, u.toJSON().position)
       assert.equal(50, u.toJSON().chips)
-      assert.equal(false, u.toJSON().sitout)
+      assert.equal(false, u.toJSON().out)
+      assert.equal(false, u.toJSON().last)
       assert.deepEqual(['', ''], u.toJSON().cards)
 
     it 'toJSON (showdown)', ->
@@ -204,6 +259,7 @@ describe 'Player', ->
       u.fold = sinon.spy()
       u.options.bet = 5
       u.options.turn_history = [['x'], []]
+      u._remove_safe = sinon.spy()
       u.on 'turn', spy
 
     it 'check', ->
@@ -217,6 +273,7 @@ describe 'Player', ->
       assert.equal(1, spy.callCount)
       assert.deepEqual({bet: 3, command: 'ch'}, spy.getCall(0).args[0])
       assert.deepEqual([['x'], ['x']], u.options.turn_history)
+      assert.equal 1, u._remove_safe.callCount
 
     it 'call', ->
       u.turn('', ['call', 500])
@@ -316,12 +373,25 @@ describe 'Player', ->
       assert.equal(0, rank_constructor.callCount)
       assert.equal(null, up.getCall(0).args[0].rank)
 
-    it 'sitout', ->
-      u.options.sitout = true
-      u.on 'sit', spy
-      fn['sitout'].bind(u)()
+    it 'out', ->
+      u.options.out = true
+      u.on 'out', spy
+      fn['out'].bind(u)()
       assert.equal(1, spy.callCount)
       assert.deepEqual({out: true}, spy.getCall(0).args[0])
+
+    it 'last', ->
+      u._remove_safe = sinon.fake.returns false
+      u.on 'last', spy
+      fn['last'].bind(u)()
+      assert.equal(1, u._remove_safe.callCount)
+      assert.equal(1, spy.callCount)
+
+    it 'last (removed)', ->
+      u._remove_safe = sinon.fake.returns true
+      u.on 'last', spy
+      fn['last'].bind(u)()
+      assert.equal(0, spy.callCount)
 
     it 'bet', ->
       u.options.bet = 5
