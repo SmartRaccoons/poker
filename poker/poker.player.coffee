@@ -38,14 +38,27 @@ module.exports.PokerPlayer = class Player extends Default
         r = new Rank(cards)
         rank = {rank: r._hand_rank, message: r._hand_message}
       @options_update {rank}
-    'sitout': -> @emit 'sit', {out: @options.sitout}
+    'out': -> @emit 'out', {out: @options.out}
+    'last': ->
+      if !@_remove_safe()
+        @emit 'last', {last: @options.last}
     'bet': -> @emit 'bet', {bet: @options.bet}
+
+  constructor: (options)->
+    super(Object.assign {chips_start: options.chips, rounds: 0}, options)
+
+  _remove_safe: ->
+    if @options.last and (@fold() or @options.cards.length is 0)
+      @emit 'remove_safe'
+      return true
+    return false
 
   budget: -> @options.chips + @options.win
 
   round: (cards)->
     chips = @options.chips + @options.win
     @options_update Object.assign(@_options_default(), {
+      rounds: @options.rounds + 1
       chips_last: chips
       chips
       cards
@@ -102,9 +115,11 @@ module.exports.PokerPlayer = class Player extends Default
       talked: false
     }, if ['fold', 'all_in'].indexOf(@options.command) < 0 then {command: null})
 
-  action_require: (bet_max)-> !@fold() and !@all_in() and (!@options.talked or @options.bet < bet_max)
+  action_require: (bet_max)-> @options.cards.length is 2 and !@fold() and !@all_in() and (!@options.talked or @options.bet < bet_max)
 
-  sit: ({out})-> @options_update {sitout: out}
+  out: ({out})-> @options_update {out}
+
+  last: ({last})-> @options_update {last}
 
   turn: (bets, command)->
     if !command
@@ -127,6 +142,7 @@ module.exports.PokerPlayer = class Player extends Default
     )
     bet_change = @bet({bet, command: command[0]})
     @emit 'turn', {command: @options.command, bet: bet_change}
+    @_remove_safe()
     return true
 
   commands: ({bet_max, bet_raise, stacks})->
@@ -143,6 +159,10 @@ module.exports.PokerPlayer = class Player extends Default
     commands.push [if bet_max is 0 then 'bet' else 'raise'].concat( if raise >= @options.chips then [@options.chips] else [raise, @options.chips] )
     return commands
 
+  readd: ({chips})->
+    @options_update {chips, last: false}
+    @emit 'readd', {chips, last: false}
+
   toJSON: ->
     params = Object.keys(@_options_default())
       .filter (k)-> ['cards_board'].indexOf(k) is -1
@@ -150,6 +170,6 @@ module.exports.PokerPlayer = class Player extends Default
       .reduce (acc, v)=>
         acc[v] = @options[v]
         acc
-      , {sitout: !!@options.sitout}
+      , {out: !!@options.out, last: !!@options.last}
 
     Object.assign params, if !@options.showdown then { cards: @options.cards.map (c)-> ''  }
