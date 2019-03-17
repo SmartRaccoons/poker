@@ -38,14 +38,18 @@ module.exports.PokerPlayer = class Player extends Default
         r = new Rank(cards)
         rank = {rank: r._hand_rank, message: r._hand_message}
       @options_update {rank}
-    'out': -> @emit 'out', {out: @options.out}
+    'out': ->
+      @emit 'out', {out: @options.out}
+      if !@options.out and @options.rounds_out > 0
+        @options_update {rounds_out: 0}
     'last': ->
       if !@_remove_safe()
         @emit 'last', {last: @options.last}
     'bet': -> @emit 'bet', {bet: @options.bet}
+    'rounds_out': -> @emit 'rounds_out', {rounds_out: @options.rounds_out}
 
   constructor: (options)->
-    super(Object.assign {chips_start: options.chips, rounds: 0}, options)
+    super(Object.assign {chips_start: options.chips, rounds: 0, rounds_out: 0}, options)
 
   _remove_safe: ->
     if @options.last and (@fold() or @options.cards.length is 0)
@@ -62,7 +66,7 @@ module.exports.PokerPlayer = class Player extends Default
       chips_last: chips
       chips
       cards
-    })
+    }, if @options.out then {rounds_out: @options.rounds_out + 1})
 
   rank: -> @options.rank
 

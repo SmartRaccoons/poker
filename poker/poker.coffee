@@ -14,6 +14,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
     delay_round: 3000
     blinds: [1, 2]
     autostart: false
+    rounds_out_max: 0 #0 - unlimited
     rake: false
       # percent: 3.5
       # progress: 1
@@ -77,6 +78,9 @@ module.exports.Poker = class Poker extends events.EventEmitter
     ['turn', 'win', 'out', 'last', 'bet_return', 'readd'].forEach (ev)=>
       player.on ev, (params)=> @emit "#{ev}", Object.assign({position}, params)
     player.on 'remove_safe', => @emit 'player:remove_safe', @_player_remove_options(player)
+    player.on 'rounds_out', ({rounds_out})=>
+      if @options.rounds_out_max and rounds_out > @options.rounds_out_max
+        @last {user_id: player.options.id, last: true}
     @_players[position] = player
     @_players_ids[data.id] = position
     @emit 'player:add', player.toJSON()

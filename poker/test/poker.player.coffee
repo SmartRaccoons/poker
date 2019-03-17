@@ -51,6 +51,7 @@ describe 'Player', ->
     it 'constructor', ->
       assert.equal 50, u.options.chips_start
       assert.equal 0, u.options.rounds
+      assert.equal 0, u.options.rounds_out
 
     it '_remove_safe', ->
       u.on 'remove_safe', spy
@@ -92,6 +93,12 @@ describe 'Player', ->
       assert.equal(7, up.getCall(0).args[0].chips)
       assert.equal('c', up.getCall(0).args[0].cards)
       assert.equal(3, up.getCall(0).args[0].rounds)
+
+    it 'round (out)', ->
+      u.options.out = true
+      u.options.rounds_out = 2
+      u.round('c')
+      assert.equal(3, up.getCall(0).args[0].rounds_out)
 
     it 'rank', ->
       u.options.rank = 'r'
@@ -379,6 +386,35 @@ describe 'Player', ->
       fn['out'].bind(u)()
       assert.equal(1, spy.callCount)
       assert.deepEqual({out: true}, spy.getCall(0).args[0])
+
+    it 'out (rounds_out reset)', ->
+      u.options_update = sinon.spy()
+      u.options.rounds_out = 1
+      u.options.out = false
+      fn['out'].bind(u)()
+      assert.equal(1, u.options_update.callCount)
+      assert.deepEqual({rounds_out: 0}, u.options_update.getCall(0).args[0])
+
+    it 'out (rounds_out reset out)', ->
+      u.options_update = sinon.spy()
+      u.options.rounds_out = 2
+      u.options.out = true
+      fn['out'].bind(u)()
+      assert.equal(0, u.options_update.callCount)
+
+    it 'out (rounds_out reset zero)', ->
+      u.options_update = sinon.spy()
+      u.options.rounds_out = 0
+      u.options.out = false
+      fn['out'].bind(u)()
+      assert.equal(0, u.options_update.callCount)
+
+    it 'rounds_out', ->
+      u.on 'rounds_out', spy
+      u.options.rounds_out = 2
+      fn['rounds_out'].bind(u)()
+      assert.equal(1, spy.callCount)
+      assert.deepEqual({rounds_out: 2}, spy.getCall(0).args[0])
 
     it 'last', ->
       u._remove_safe = sinon.fake.returns false

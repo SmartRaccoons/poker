@@ -244,6 +244,28 @@ describe 'Poker', ->
       assert.equal 1, spy.callCount
       assert.equal 'op', spy.getCall(0).args[0]
 
+    it 'player_add (rounds_out_max)', ->
+      p.player_add({id: 1})
+      p.last = sinon.spy()
+      p.options.rounds_out_max = 1
+      p._players[0].emit 'rounds_out', {rounds_out: 2}
+      assert.equal(1, p.last.callCount)
+      assert.deepEqual({user_id: 1, last: true}, p.last.getCall(0).args[0])
+
+    it 'player_add (rounds_out_max disabled)', ->
+      p.player_add({id: 1})
+      p.last = sinon.spy()
+      p.options.rounds_out_max = 0
+      p._players[0].emit 'rounds_out', {rounds_out: 2}
+      assert.equal(0, p.last.callCount)
+
+    it 'player_add (rounds_out_max not enough)', ->
+      p.player_add({id: 1})
+      p.last = sinon.spy()
+      p.options.rounds_out_max = 1
+      p._players[0].emit 'rounds_out', {rounds_out: 1}
+      assert.equal(0, p.last.callCount)
+
     it 'player_get', ->
       p._player_position_free = -> 1
       p.player_add({id: 2})
