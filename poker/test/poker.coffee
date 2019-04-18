@@ -16,8 +16,8 @@ Poker = proxyquire('../poker', {
     PokerRank: Rank
 }).Poker
 
-Player = Poker::player
-Board = Poker::board
+Player = Poker::Player
+Board = Poker::Board
 
 
 describe 'Poker', ->
@@ -38,18 +38,21 @@ describe 'Poker', ->
       timeout: 10
       chips: 1500
     p._cards.shuffle = sinon.spy()
-    p._cards.pop = sinon.spy()
-    p._board.reset = sinon.spy()
+    p._cards.deal = sinon.spy()
+    p._board.round = sinon.spy()
     p._board.progress = sinon.spy()
+    p._board.pot_total = sinon.fake.returns 5
     player1 = new Player({id: 1, chips: 20})
     player1.bet = sinon.spy()
     player1.round = sinon.spy()
     player1.options.cards = ['1', '11']
+    player1.options.position = 0
     player1.action_require = -> true
     player2 = new Player({id: 2, chips: 15})
     player2.bet = sinon.spy()
     player2.round = sinon.spy()
     player2.options.cards = ['2', '22']
+    player2.options.position = 1
     player2.action_require = -> true
     player3 = new Player({id: 3, chips: 10})
     player3.bet = sinon.spy()
@@ -72,6 +75,7 @@ describe 'Poker', ->
       assert.deepEqual([1, 2], p._blinds)
       assert.deepEqual({}, p._players_ids)
       assert.equal(1500, p._chips_start)
+      assert.equal(0, p._round_count)
 
     it 'contructor (default)', ->
       p = new Poker()
@@ -101,6 +105,17 @@ describe 'Poker', ->
       assert.equal(1, spy.callCount)
       assert.equal('pot', spy.getCall(0).args[0])
 
+    it 'cards change event', ->
+      player1.options_update = sinon.spy()
+      player2.options_update = sinon.spy()
+      p._players = [null, player1, null, player2]
+      p._board.options.cards = 'c1'
+      p._board.emit 'change:cards'
+      assert.equal 1, player1.options_update.callCount
+      assert.deepEqual {cards_board: 'c1'}, player1.options_update.getCall(0).args[0]
+      assert.equal true, player1.options_update.getCall(0).args[1]
+      assert.equal 1, player2.options_update.callCount
+
     it 'progress event', ->
       p.on 'card', spy
       player1.progress = sinon.spy()
@@ -109,7 +124,6 @@ describe 'Poker', ->
       p._players = [null, player1, null, player2]
       p.emit 'progress', 'pa'
       assert.equal(1, player1.progress.callCount)
-      assert.equal('pa', player1.progress.getCall(0).args[0])
       assert.equal(1, player2.progress.callCount)
       assert.equal(1, p._board.progress.callCount)
       assert.equal('pa', p._board.progress.getCall(0).args[0])
@@ -177,6 +191,8 @@ describe 'Poker', ->
       p.player_add({id: 1})
       assert.equal(1, spy.callCount)
       assert.equal(1, spy.getCall(0).args[0].id)
+      assert.equal(1, spy.getCall(0).args[1][1].id)
+      assert.equal(true, spy.getCall(0).args[1][1].hero)
 
     it 'player_add (bet)', ->
       p.player_add({id: 1})
@@ -315,21 +331,27 @@ describe 'Poker', ->
     it 'start', ->
       p.round = sinon.spy()
       p._dealer_next = -> true
+      p._emit_start_params = sinon.fake.returns [1, 2]
       p.on 'start', spy
       p.start()
       assert.equal(1, spy.callCount)
+      assert.equal(1, spy.getCall(0).args[0])
+      assert.equal(2, spy.getCall(0).args[1])
       assert.equal(true, p._started)
       assert.equal(1, p.round.callCount)
 
     it 'round', ->
+      p._emit_round_params = ->
       p._showdown_call = true
       p._dealer = 0
       p._players = [player1, player2, player3]
       p._progress = sinon.spy()
       p._blinds = [2, 4]
+      p._round_count = 1
       p.round()
-      assert.equal(1, p._board.reset.callCount)
-      assert.deepEqual({blinds: [2, 4], show_first: 2}, p._board.reset.getCall(0).args[0])
+      assert.equal(2, p._round_count)
+      assert.equal(1, p._board.round.callCount)
+      assert.deepEqual({blinds: [2, 4], show_first: 2}, p._board.round.getCall(0).args[0])
       assert.equal(1, p._cards.shuffle.callCount)
       assert.equal(1, player3.bet.callCount)
       assert.deepEqual({bet: 2, command: 'blind'}, player3.bet.getCall(0).args[0])
@@ -362,17 +384,16 @@ describe 'Poker', ->
 
     it 'round (players)', ->
       p._players = [player1, player2]
-      a = 0
-      p._cards.pop = ->
-        a++
-        a
+      p._round_player_addon =  sinon.fake.returns('add')
       p.round()
+      assert.equal(2, p._round_player_addon.callCount)
+      assert.deepEqual(player1, p._round_player_addon.getCall(0).args[0])
       assert.equal(1, player1.round.callCount)
       assert.equal(1, player2.round.callCount)
       assert.equal(1, player1.round.callCount)
-      assert.deepEqual([1, 2], player1.round.getCall(0).args[0])
+      assert.equal('add', player1.round.getCall(0).args[0])
       assert.equal(1, player2.round.callCount)
-      assert.deepEqual([3, 4], player2.round.getCall(0).args[0])
+      assert.equal('add', player2.round.getCall(0).args[0])
 
     it 'round (emit)', ->
       p._players = [player1, player2]
@@ -381,32 +402,56 @@ describe 'Poker', ->
       player2.options.bet = 2
       player2.options.command = 'c2'
       a = 0
-      p._cards.pop = ->
+      p._cards.deal = ->
         a++
         a
+      p._emit_round_params = sinon.fake.returns [1, 2]
       p.on 'round', spy
       p.round()
       assert.equal(1, spy.callCount)
-      assert.deepEqual([{position: 0, bet: 1, command: 'c'}, {position: 1, bet: 2, command: 'c2'}], spy.getCall(0).args[0].blinds)
-      assert.equal(0, spy.getCall(0).args[0].dealer)
-      assert.deepEqual({1: ['1', '11'], 2: ['2', '22']}, spy.getCall(0).args[1].cards)
+      assert.equal(1, spy.getCall(0).args[0])
+      assert.equal(2, spy.getCall(0).args[1])
+
+    it '_round_player_addon', ->
+      p._cards.deal = sinon.fake.returns [1, 2]
+      assert.deepEqual({cards: [1, 2]}, p._round_player_addon())
+      assert.equal(1, p._cards.deal.callCount)
+      assert.equal(2, p._cards.deal.getCall(0).args[0])
+
+    it '_emit_round_params', ->
+      p._players = [player1, player2, null]
+      p.players = -> [player1, player2]
+      p._blinds_position = [0, 1]
+      p._dealer = 0
+      player1.options.command = 'c'
+      player1.options.bet = 1
+      player2.options.command = 'c2'
+      player2.options.bet = 2
+      params = p._emit_round_params()
+      assert.deepEqual({dealer: 0, blinds: [{position: 0, bet: 1, command: 'c'}, {position: 1, bet: 2, command: 'c2'}], players: [{cards: ['', '']}, {cards: ['', '']}, null] }, params[0])
+      assert.deepEqual({
+        1: {players: [ {cards: ['1', '11']}, {cards: ['', '']}, null ] }
+        2: {players: [ {cards: ['', '']}, {cards: ['2', '22']}, null ] }
+      }, params[1])
+
+    it '_emit_round_params (rake)', ->
+      p._rake = 5
+      p._blinds_position = []
+      params = p._emit_round_params()
+      assert.equal(5, params[0].rake)
 
     it 'round (rake calc)', ->
       p._rake_calc = sinon.fake.returns 'rr'
-      p.on 'round', spy
       p._players = [player1, player2, null]
       p.round()
       assert.equal(1, p._rake_calc.callCount)
       assert.equal(2, p._rake_calc.getCall(0).args[0])
-      assert.equal('rr', spy.getCall(0).args[0].rake)
       assert.equal('rr', p._rake)
 
     it 'round (no rake)', ->
       p._rake_calc = sinon.fake.returns false
-      p.on 'round', spy
       p._players = [player1, player2]
       p.round()
-      assert.ok(Object.keys(spy.getCall(0).args[0]).indexOf('rake') is -1 )
       assert.equal(false, p._rake)
 
     it '_rake_calc', ->
@@ -428,25 +473,43 @@ describe 'Poker', ->
       assert.deepEqual([15, 30], p._blinds_next)
 
     it '_waiting_commands', ->
+      p._progress_round = 5
       p.players = sinon.fake.returns([1, 2])
       p._waiting = 1
       p._board.bet_max = -> 5
       p._board.bet_raise = -> 3
       p._players = [null, player1]
       player1.commands = sinon.fake.returns('commands')
-      p._waiting_commands()
+      assert.deepEqual({commands: 'commands'}, p._waiting_commands())
       assert.equal(1, player1.commands.callCount)
-      assert.deepEqual({bet_max: 5, bet_raise: 3, stacks: 2}, player1.commands.getCall(0).args[0])
+      assert.deepEqual({bet_max: 5, cap: null, bet_raise: 3, stacks: 2, blind: 2, pot: 5, progress: 5}, player1.commands.getCall(0).args[0])
       assert.equal(1, p.players.callCount)
       assert.deepEqual({fold: false, all_in: false}, p.players.getCall(0).args[0])
+      assert.equal 1, p._board.pot_total.callCount
+
+    it '_waiting_commands (cap)', ->
+      p.players = sinon.fake.returns([1, 2])
+      p._progress_round = 0
+      p.options.cap = [2, 3]
+      p._blinds = [5, 10]
+      p._waiting = 1
+      p._board.bet_max = -> 5
+      p._board.bet_raise = -> 3
+      p._players = [null, player1]
+      player1.commands = sinon.fake.returns('commands')
+      p._waiting_commands()
+      assert.equal(20, player1.commands.getCall(0).args[0].cap)
+      p._progress_round = 1
+      p._waiting_commands()
+      assert.equal(30, player1.commands.getCall(1).args[0].cap)
 
     it '_get_ask', ->
       p._timeout_activity_callback = 2
       p._activity_timeout_left = sinon.fake.returns(5)
       p._waiting = 2
       p._players = [null, null, player1]
-      p._waiting_commands = -> 'commands'
-      assert.deepEqual([{position: 2, timeout: 5}, {id: 1, commands: 'commands'}], p._get_ask())
+      p._waiting_commands = -> {commands: 'commands'}
+      assert.deepEqual([{position: 2, timeout: 5}, 1: {commands: 'commands'}], p._get_ask())
 
     it '_get_ask (no activity)', ->
       assert.equal(null, p._get_ask())
@@ -470,7 +533,7 @@ describe 'Poker', ->
 
     it '_emit_ask (only one command)', ->
       p._players = [player1, player2]
-      p._waiting_commands = sinon.fake.returns([['check']])
+      p._waiting_commands = sinon.fake.returns({commands: [['check']]})
       p.turn = sinon.spy()
       p._emit_ask(1)
       assert.equal(1, p._waiting_commands.callCount)
@@ -478,7 +541,7 @@ describe 'Poker', ->
       assert.deepEqual(['check'], p.turn.getCall(0).args[0])
 
     it '_emit_ask (out)', ->
-      p._waiting_commands = sinon.fake.returns([['check'], ['call']])
+      p._waiting_commands = sinon.fake.returns({commands: [['check'], ['call']]})
       player1.options.out = true
       p._waiting = 0
       p._players = [player1]
@@ -502,15 +565,19 @@ describe 'Poker', ->
     it '_activity', ->
       p.turn = sinon.spy()
       p._activity()
+      assert.equal(10 * 1000, p._timeout_activity_timeout)
       clock.tick(1000 * 10)
       assert.equal(0, p.turn.callCount)
       clock.tick(1000 * 2)
       assert.equal(1, p.turn.callCount)
 
+    it '_activity (custom timeout)', ->
+      p._activity(40)
+      assert.equal(40, p._timeout_activity_timeout)
+
     it '_activity_timeout_left', ->
-      p._waiting_commands = -> [[]]
-      p.turn = ->
-      p._activity()
+      p._timeout_activity_timeout = 10 * 1000
+      p._timeout_activity_timeout_start = new Date()
       assert.equal(10, p._activity_timeout_left())
       clock.tick(1000 * 5 + 400)
       assert.equal(5, p._activity_timeout_left())
@@ -534,14 +601,17 @@ describe 'Poker', ->
       p._board.toJSON = sinon.fake.returns('bjson')
       p._dealer = 'd'
       p._progress_round = 'p'
-      p._get_ask = -> 'ask'
+      p._get_ask = -> [ {a: 'sk'}, {1: {s: 'k'}} ]
       p._players = [null, player1, null]
-      json = p.toJSON()
+      json = p.toJSON(5)
       assert.deepEqual([null, 'pjson', null], json.players)
       assert.equal('d', json.dealer)
       assert.equal('p', json.progress)
-      assert.equal('ask', json.ask)
       assert.deepEqual([1, 2], json.blinds)
+      assert.equal(1, player1.toJSON.callCount)
+      assert.equal(5, player1.toJSON.getCall(0).args[0])
+      assert.deepEqual({a: 'sk'}, json.ask)
+      assert.deepEqual({a: 'sk', s: 'k'}, p.toJSON(1).ask)
 
     it 'toJSON (no ask)', ->
       p._get_ask = -> null
@@ -615,21 +685,6 @@ describe 'Poker', ->
       p.out({user_id: 5, out: true})
       assert.equal(0, p.turn.callCount)
 
-    it 'turn', ->
-      p.turn('check')
-      assert.equal(0, player1.out.callCount)
-      assert.equal(1, player1.turn.callCount)
-      assert.deepEqual({bet_max: 'bm', bet_raise: 'br'}, player1.turn.getCall(0).args[0])
-      assert.equal('check', player1.turn.getCall(0).args[1])
-      assert.equal(1, p._progress.callCount)
-      assert.equal(1, p._activity_clear.callCount)
-
-    it 'turn (false)', ->
-      player1.turn = sinon.fake.returns(false)
-      p.turn('check')
-      assert.equal(0, p._progress.callCount)
-      assert.equal(0, p._activity_clear.callCount)
-
     it 'waiting', ->
       p._timeout_activity_callback = 's'
       player1.options.id = 5
@@ -637,13 +692,37 @@ describe 'Poker', ->
       p._timeout_activity_callback = null
       assert.equal(null, p.waiting())
 
-    it 'default command', ->
-      p._waiting_commands = sinon.fake.returns([['boom']])
+
+  describe 'turn', ->
+    beforeEach ->
+      p._waiting_commands = sinon.fake.returns({commands: [['boom', 2], ['bem', 2, 5]]})
+      p._waiting = 1
+      p._activity_clear = sinon.spy()
+      p._progress = sinon.spy()
+      p._players = [null, player1]
+      player1.out = sinon.spy()
+      player1.turn = sinon.fake.returns(true)
+
+    it 'default', ->
+      p.turn(['bem'])
+      assert.equal(0, player1.out.callCount)
+      assert.equal(1, player1.turn.callCount)
+      assert.deepEqual(['bem', 2, 5], player1.turn.getCall(0).args[0])
+      assert.deepEqual(['bem'], player1.turn.getCall(0).args[1])
+      assert.equal(1, p._progress.callCount)
+      assert.equal(1, p._activity_clear.callCount)
+
+    it 'command not found', ->
+      p.turn(['bum'])
+      assert.equal(1, player1.out.callCount)
+      assert.deepEqual(['boom', 2], player1.turn.getCall(0).args[0])
+      assert.deepEqual(['boom', 2], player1.turn.getCall(0).args[1])
+
+    it 'command empty', ->
       p.turn()
       assert.equal(1, player1.out.callCount)
-      assert.deepEqual({out: true}, player1.out.getCall(0).args[0])
-      assert.equal(1, player1.turn.callCount)
-      assert.equal('boom', player1.turn.getCall(0).args[1])
+      assert.deepEqual(['boom', 2], player1.turn.getCall(0).args[0])
+      assert.deepEqual(['boom', 2], player1.turn.getCall(0).args[1])
 
 
   describe '_progress_action', ->
@@ -707,9 +786,7 @@ describe 'Poker', ->
         cards: sinon.spy()
         pot: ->
         progress: ->
-      c = 0
-      p._cards.pop = sinon.fake ->
-        c++
+      p._cards.deal = sinon.fake.returns 'ca'
       p.players = sinon.fake.returns([{progress: ->}, {progress: ->}])
       p._round_end = sinon.spy()
       p._progress_pot = sinon.spy()
@@ -765,9 +842,10 @@ describe 'Poker', ->
       p._progress_round = 0
       p._progress(->)
       assert.equal(1, spy.callCount)
-      assert.deepEqual({cards: [1, 2, 3]}, spy.getCall(0).args[0])
+      assert.deepEqual({cards: 'ca'}, spy.getCall(0).args[0])
       assert.equal(1, p._progress_round)
-      assert.equal(4, p._cards.pop.callCount)
+      assert.equal(1, p._cards.deal.callCount)
+      assert.equal(3, p._cards.deal.getCall(0).args[0])
 
     it 'flop (waiting)', ->
       p._dealer = 5
@@ -780,8 +858,7 @@ describe 'Poker', ->
       p._progress_round = 1
       p.on 'progress', spy
       p._progress(->)
-      assert.equal(2, p._cards.pop.callCount)
-      assert.deepEqual([1], spy.getCall(0).args[0].cards)
+      assert.equal(1, p._cards.deal.getCall(0).args[0])
 
     it 'delay', ->
       p._progress(->)

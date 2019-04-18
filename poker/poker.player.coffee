@@ -1,26 +1,15 @@
-Rank = require('./rank').PokerRank
-events = require('events')
-
-class Default extends events.EventEmitter
-  constructor: (options)-> #({id, chips, position})->
-    super()
-    @options = Object.assign @_options_default(), options
-    @_options_bind_parsed = Object.keys(@_options_bind).reduce (acc, v)=>
-      acc.concat { events: v.split(','), fn: @_options_bind[v].bind(@) }
-    , []
-
-  options_update: (options)->
-    updated = Object.keys(options)
-    Object.assign @options, options
-    @_options_bind_parsed
-    .filter (v)->
-      updated.filter( (up)-> v.events.indexOf(up) >= 0 ).length > 0
-    .forEach (v)->
-      v.fn()
+Default = require('./default').Default
+cloneDeep = require('lodash').cloneDeep
+_pick = require('lodash').pick
 
 
 module.exports.PokerPlayer = class Player extends Default
-  _options_default: ->
+  Rank: require('./rank').PokerRank
+  options_default:
+    id: null
+    position: null
+    chips: 0
+    chips_start: 0
     talked: false
     command: ''
     showdown: false
@@ -29,13 +18,18 @@ module.exports.PokerPlayer = class Player extends Default
     bet: 0
     win: 0
     turn_history: [[]]
+    out: false
+    last: false
+    rounds: 0
+    rounds_out: 0
+  options_round_reset: ['talked', 'command', 'showdown', 'cards', 'cards_board', 'bet', 'win', 'turn_history']
 
-  _options_bind:
+  options_bind:
     'cards,cards_board': ->
       cards = @options.cards_board.concat(@options.cards)
       rank = null
       if cards.length isnt 0
-        r = new Rank(cards)
+        r = new (@Rank)(cards)
         rank = {rank: r._hand_rank, message: r._hand_message}
       @options_update {rank}
     'out': ->
@@ -49,7 +43,7 @@ module.exports.PokerPlayer = class Player extends Default
     'rounds_out': -> @emit 'rounds_out', {rounds_out: @options.rounds_out}
 
   constructor: (options)->
-    super(Object.assign {chips_start: options.chips, rounds: 0, rounds_out: 0}, options)
+    super Object.assign({chips_start: options.chips}, options)
 
   _remove_safe: ->
     if @options.last and (@fold() or @options.cards.length is 0)
@@ -59,14 +53,16 @@ module.exports.PokerPlayer = class Player extends Default
 
   budget: -> @options.chips + @options.win
 
-  round: (cards)->
+  round: (params)->
     chips = @options.chips + @options.win
-    @options_update Object.assign(@_options_default(), {
-      rounds: @options.rounds + 1
-      chips_last: chips
-      chips
-      cards
-    }, if @options.out then {rounds_out: @options.rounds_out + 1})
+    @options_update Object.assign(
+      cloneDeep(_pick(@options_default, @options_round_reset))
+      params
+      {
+        rounds: @options.rounds + 1
+        chips_last: chips
+        chips
+      }, if @options.out then {rounds_out: @options.rounds_out + 1})
 
   rank: -> @options.rank
 
@@ -111,10 +107,9 @@ module.exports.PokerPlayer = class Player extends Default
     if not silent
       @emit 'win', {win}
 
-  progress: ({cards})->
+  progress: ->
     @options.turn_history.push([])
     @options_update Object.assign({
-      cards_board: @options.cards_board.concat(cards)
       turn_history: @options.turn_history
       talked: false
     }, if ['fold', 'all_in'].indexOf(@options.command) < 0 then {command: null})
@@ -125,12 +120,7 @@ module.exports.PokerPlayer = class Player extends Default
 
   last: ({last})-> @options_update {last}
 
-  turn: (bets, command)->
-    if !command
-      return false
-    params = @commands(bets).filter( (c)-> c[0] is command[0] )[0]
-    if !params
-      return false
+  turn: (params, command)->
     bet = {
       fold: -> 0
       check: -> 0
@@ -149,7 +139,7 @@ module.exports.PokerPlayer = class Player extends Default
     @_remove_safe()
     return true
 
-  commands: ({bet_max, bet_raise, stacks})->
+  commands: ({bet_max, bet_raise, cap, stacks})->
     commands = []
     commands.push(if @options.bet >= bet_max then ['check'] else ['fold'])
     if stacks is 1 and @options.bet >= bet_max
@@ -160,20 +150,17 @@ module.exports.PokerPlayer = class Player extends Default
     if stacks is 1 or call >= @options.chips
       return commands
     raise = call + bet_raise
-    commands.push [if bet_max is 0 then 'bet' else 'raise'].concat( if raise >= @options.chips then [@options.chips] else [raise, @options.chips] )
+    cap = if cap and cap <= @options.chips then cap else @options.chips
+    commands.push [if bet_max is 0 then 'bet' else 'raise'].concat( if raise >= cap then [cap] else [raise, cap] )
     return commands
 
   readd: ({chips})->
     @options_update {chips, last: false}
     @emit 'readd', {chips, last: false}
 
-  toJSON: ->
-    params = Object.keys(@_options_default())
-      .filter (k)-> ['cards_board'].indexOf(k) is -1
-      .concat(['id', 'position', 'chips'])
-      .reduce (acc, v)=>
-        acc[v] = @options[v]
-        acc
-      , {out: !!@options.out, last: !!@options.last}
-
-    Object.assign params, if !@options.showdown then { cards: @options.cards.map (c)-> ''  }
+  toJSON: (user_id)->
+    Object.assign(
+      _pick @options, Object.keys(@options_default).filter( (k)-> ['cards_board'].indexOf(k) is -1 )
+      if user_id is @options.id then {hero: true}
+      if user_id isnt @options.id and !@options.showdown then { cards: @options.cards.map (c)-> ''  }
+    )

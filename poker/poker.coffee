@@ -1,11 +1,13 @@
 events = require('events')
-Cards = require('./cards').Cards
 Rank = require('./rank').PokerRank
+cloneDeep = require('lodash').cloneDeep
+
 
 
 module.exports.Poker = class Poker extends events.EventEmitter
-  player: require('./poker.player').PokerPlayer
-  board: require('./poker.board').PokerBoard
+  Player: require('./poker.player').PokerPlayer
+  Board: require('./poker.board').PokerBoard
+  Cards: require('./cards').Cards
 
   _options_default:
     players: [2, 9]
@@ -19,38 +21,44 @@ module.exports.Poker = class Poker extends events.EventEmitter
       # percent: 3.5
       # progress: 1
       # cap: 30 # [[2, 20], [3, 40], []]; []
+    # cap: [2, 2, 3, 3]
 
   constructor: (options = {})-> #{blinds, buy_in}
     super()
-    @options = Object.assign {}, @_options_default, options
+    @options = Object.assign cloneDeep(@_options_default), options
     @_players = [0...@options.players[1]].map -> null
     @_players_ids = {}
     @_dealer = -1
     @_blinds = @options.blinds.slice(0)
     @_chips_start = options.chips
-    @_cards = new Cards()
-    @_board = new (@board)()
+    @_cards = new (@Cards)()
+    @_board = new (@Board)()
     @_board.on 'pot:return', ({pot, position})=>
       @_players[position].bet_return({bet: pot})
     @_board.on 'pot:update', (pot)=> @emit 'pot', pot
+    @_board.on 'change:cards', =>
+      @players().forEach (p)=>
+        p.options_update {cards_board: @_board.options.cards}, true
     @on 'progress', (params)=>
       @_board.progress(params)
-      @players().forEach (p)-> p.progress(params)
+      @players().forEach (p)-> p.progress()
     if options.users
       options.users.forEach (user)=> @player_add(user)
+    @_round_count = 0
 
   _activity_clear: ->
     clearTimeout @_timeout_activity_callback
     @_timeout_activity_callback = null
 
-  _activity: ->
+  _activity: (timeout = @options.timeout * 1000)->
+    @_timeout_activity_timeout = timeout
     @_timeout_activity_timeout_start = new Date().getTime()
     @_timeout_activity_callback = setTimeout =>
       @turn()
-    , @options.timeout * 1000 + 1000
+    , timeout + 1000
 
   _activity_timeout_left: ->
-    seconds = Math.round ( @options.timeout * 1000 - (new Date().getTime() - @_timeout_activity_timeout_start) ) / 1000
+    seconds = Math.round ( @_timeout_activity_timeout - (new Date().getTime() - @_timeout_activity_timeout_start) ) / 1000
     if seconds <= 1 then 1 else seconds
 
   _player_position_next: (position, max = @_players.length)->
@@ -73,7 +81,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
     position = @_player_position_free()
     if position is -1
       return false
-    player = new (@player)(Object.assign({position, chips: @_chips_start, command: 'fold'}, data))
+    player = new (@Player)(Object.assign({position, chips: @_chips_start, command: 'fold'}, data))
     player.on 'bet', ({bet, blind})=> @_board.bet({position, bet})
     ['turn', 'win', 'out', 'last', 'bet_return', 'readd'].forEach (ev)=>
       player.on ev, (params)=> @emit "#{ev}", Object.assign({position}, params)
@@ -83,7 +91,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
         @last {user_id: player.options.id, last: true}
     @_players[position] = player
     @_players_ids[data.id] = position
-    @emit 'player:add', player.toJSON()
+    @emit 'player:add', player.toJSON(), {[player.options.id]: player.toJSON(player.options.id)}
     if !@_started and @options.autostart and @players().length is @options.players[0]
       @start()
     return true
@@ -106,9 +114,11 @@ module.exports.Poker = class Poker extends events.EventEmitter
   players: (filter)->
     @_players.filter (p)-> if filter then p and p.filter(filter) else p
 
+  _emit_start_params: -> []
+
   start: ->
     @_started = true
-    @emit 'start'
+    @emit.apply @, ['start'].concat(@_emit_start_params())
     @round()
 
   _rake_calc: (players_count)->
@@ -121,32 +131,45 @@ module.exports.Poker = class Poker extends events.EventEmitter
     return @options.rake
 
   round: ->
+    @_round_count++
     if @_blinds_next
-      @_blinds = @_blinds_next
+      @_blinds = @_blinds_next.slice(0)
       @_blinds_next = null
     @_cards.shuffle()
     @_showdown_call = false
     @_progress_round = 0
     players = @players()
-    players.forEach (p)=> p.round([@_cards.pop(), @_cards.pop()])
+    players.forEach (p)=> p.round(@_round_player_addon(p))
     @_dealer = @_player_position_next(@_dealer)
     @_blinds_position = [@_dealer]
     if players.length > 2
       @_blinds_position[0] = @_player_position_next(@_dealer)
     @_waiting = @_blinds_position[1] = @_player_position_next(@_blinds_position[0])
-    @_board.reset({blinds: @_blinds.slice(0), show_first: @_player_position_next(@_dealer)})
+    @_board.round({blinds: @_blinds.slice(0), show_first: @_player_position_next(@_dealer)})
     [0, 1].forEach (id)=> @_players[@_blinds_position[id]].bet({bet: @_blinds[id], command: 'blind'})
     @_rake = @_rake_calc(players.length)
-    @emit 'round', Object.assign({
-      dealer: @_dealer
-      blinds: @_blinds_position.map (position)=> {position, bet: @_players[position].options.bet, command: @_players[position].options.command}
-    }, if @_rake then {rake: @_rake}), {
-      cards: players.reduce( (acc, p)->
-        acc[p.options.id] = p.options.cards
-        return acc
-      , {})
-    }
+    @emit.apply @, ['round'].concat(@_emit_round_params())
     @_progress()
+
+  _round_player_addon: -> { cards: @_cards.deal(2) }
+
+  _emit_round_params: ->
+    players = @_players.map (p)->
+      if !p
+        return null
+      {cards: ['', '']}
+    [
+      Object.assign({
+        dealer: @_dealer
+        blinds: @_blinds_position.map (position)=> {position, bet: @_players[position].options.bet, command: @_players[position].options.command}
+        players
+      }, if @_rake then {rake: @_rake})
+      @players().reduce( (acc, p)->
+        players_clone = cloneDeep(players)
+        players_clone[p.options.position].cards = p.options.cards
+        Object.assign acc, {[p.options.id]: {players: players_clone}}
+      , {})
+    ]
 
   blinds: (@_blinds_next)->
 
@@ -226,9 +249,8 @@ module.exports.Poker = class Poker extends events.EventEmitter
     @_progress_round++
     if @_progress_round is 4
       return @_round_end()
-    @_cards.pop()
     @emit 'progress', {
-      cards: if 1 is @_progress_round then [@_cards.pop(), @_cards.pop(), @_cards.pop()] else [@_cards.pop()]
+      cards: @_cards.deal(if 1 is @_progress_round then 3 else 1)
     }
     @_waiting = @_dealer
     callback.bind(this)(callback)
@@ -239,14 +261,11 @@ module.exports.Poker = class Poker extends events.EventEmitter
     [{
       position: @_waiting
       timeout: @_activity_timeout_left()
-    }, {
-      id: @_players[@_waiting].options.id
-      commands: @_waiting_commands()
-    }]
+    }, { [@_players[@_waiting].options.id]: @_waiting_commands() }]
 
   _emit_ask: (player)->
     @_waiting = player
-    commands = @_waiting_commands()
+    commands = @_waiting_commands().commands
     if commands.length is 1
       return @turn(commands[0])
     if @_players[@_waiting].options.out
@@ -255,21 +274,26 @@ module.exports.Poker = class Poker extends events.EventEmitter
     @emit.apply(@, ['ask'].concat(@_get_ask()))
 
   _waiting_commands: ->
-    @_players[@_waiting].commands({
-      bet_max: @_board.bet_max()
-      bet_raise: @_board.bet_raise()
-      stacks: @players({fold: false, all_in: false}).length
-    })
+    {
+      commands: @_players[@_waiting].commands({
+        bet_max: @_board.bet_max()
+        bet_raise: @_board.bet_raise()
+        stacks: @players({fold: false, all_in: false}).length
+        blind: @_blinds[1]
+        pot: @_board.pot_total()
+        progress: @_progress_round
+        cap: if @options.cap then @options.cap[@_progress_round] * @_blinds[1] else null
+      })
+    }
 
   turn: (command)->
-    if !command
-      command = @_waiting_commands()[0]
+    commands = @_waiting_commands().commands
+    if command
+      params = commands.find (c)-> c[0] is command[0]
+    if !params
+      command = params = commands[0]
       @_players[@_waiting].out({out: true})
-    if !@_players[@_waiting].turn({
-      bet_max: @_board.bet_max()
-      bet_raise: @_board.bet_raise()
-      }, command)
-      return
+    @_players[@_waiting].turn(params, command)
     @_activity_clear()
     @_progress()
 
@@ -294,14 +318,14 @@ module.exports.Poker = class Poker extends events.EventEmitter
       return null
     @_players[@_waiting].options.id
 
-  toJSON: ->
+  toJSON: (user_id = null)->
     json =
-      players: @_players.map (p)-> p and p.toJSON()
+      players: @_players.map (p)-> p and p.toJSON(user_id)
       board: @_board.toJSON()
       dealer: @_dealer
       progress: @_progress_round
       blinds: @_blinds
     ask = @_get_ask()
     if ask
-      json.ask = ask
+      json.ask = Object.assign {}, ask[0], ask[1][user_id]
     json
