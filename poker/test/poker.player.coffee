@@ -33,6 +33,10 @@ describe 'Player', ->
   describe 'default', ->
     it 'options', ->
       assert.deepEqual({
+        id: null
+        position: null
+        chips: 0
+        chips_start: 0
         talked: false
         command: ''
         showdown: false
@@ -41,7 +45,12 @@ describe 'Player', ->
         bet: 0
         win: 0
         turn_history: [[]]
-      }, u._options_default())
+        out: false
+        last: false
+        rounds: 0
+        rounds_out: 0
+      }, u.options_default)
+      assert.deepEqual(["talked", "command", "showdown", "cards", "cards_board", "bet", "win", "turn_history"], u.options_round_reset)
 
     it 'budget', ->
       u.options.chips = 5
@@ -50,8 +59,6 @@ describe 'Player', ->
 
     it 'constructor', ->
       assert.equal 50, u.options.chips_start
-      assert.equal 0, u.options.rounds
-      assert.equal 0, u.options.rounds_out
 
     it '_remove_safe', ->
       u.on 'remove_safe', spy
@@ -86,13 +93,23 @@ describe 'Player', ->
       u.options.chips = 5
       u.options.win = 2
       u.options.rounds = 2
-      u.round('c')
+      u.round({cards: 'c'})
       assert.equal(1, up.callCount)
       assert.equal(0, up.getCall(0).args[0].win)
       assert.equal(7, up.getCall(0).args[0].chips_last)
       assert.equal(7, up.getCall(0).args[0].chips)
       assert.equal('c', up.getCall(0).args[0].cards)
       assert.equal(3, up.getCall(0).args[0].rounds)
+
+    it 'round (default)', ->
+      u.options_default.winner = 0
+      u.options_default.talked = 'talk'
+      u.options_round_reset = ['winner', 'talked']
+      u.options.talked = 'to'
+      u.options.winner = 2
+      u.round('c')
+      assert.equal(0, up.getCall(0).args[0].winner)
+      assert.equal('talk', up.getCall(0).args[0].talked)
 
     it 'round (out)', ->
       u.options.out = true
@@ -189,9 +206,9 @@ describe 'Player', ->
       u.options.command = 'raise'
       u.options.cards_board = [2]
       u.options.turn_history = [['x']]
-      u.progress({cards: [5]})
+      u.progress()
       assert.equal(1, up.callCount)
-      assert.deepEqual({command: null, turn_history: [['x'], []], cards_board: [2, 5], talked: false}, up.getCall(0).args[0])
+      assert.deepEqual({command: null, turn_history: [['x'], []], talked: false}, up.getCall(0).args[0])
 
     it 'progress (command all_in/fold)', ->
       u.options.command = 'all_in'
@@ -258,10 +275,17 @@ describe 'Player', ->
       u.options.showdown = true
       assert.deepEqual([1, 2], u.toJSON().cards)
 
+    it 'toJSON (self)', ->
+      u.options.cards = [1, 2]
+      assert.deepEqual([1, 2], u.toJSON(2).cards)
+      assert.equal(true, u.toJSON(2).hero)
+
 
   describe 'turn', ->
+    commands = null
     beforeEach ->
       u.commands = sinon.fake.returns([['check'], ['call', 30], ['raise', 40, 500], ['bet', 40, 500]])
+      commands = [['check'], ['call', 30], ['raise', 40, 500], ['bet', 40, 500]]
       u.bet = sinon.fake.returns(3)
       u.fold = sinon.spy()
       u.options.bet = 5
@@ -272,9 +296,7 @@ describe 'Player', ->
     it 'check', ->
       u.options.command = 'ch'
       u.options.chips = 3
-      assert.equal(true, u.turn('c-params', ['check']) )
-      assert.equal(1, u.commands.callCount)
-      assert.equal('c-params', u.commands.getCall(0).args[0])
+      u.turn(['check'], ['check'])
       assert.equal(1, u.bet.callCount)
       assert.deepEqual({bet: 0, command: 'check'}, u.bet.getCall(0).args[0])
       assert.equal(1, spy.callCount)
@@ -283,41 +305,33 @@ describe 'Player', ->
       assert.equal 1, u._remove_safe.callCount
 
     it 'call', ->
-      u.turn('', ['call', 500])
+      u.turn(['call', 30], ['call', 500])
       assert.deepEqual({bet: 30, command: 'call'}, u.bet.getCall(0).args[0])
       assert.deepEqual([['x'], ['c']], u.options.turn_history)
 
     it 'raise', ->
-      u.turn('', ['raise', 50.5])
+      u.turn(['raise', 40, 500], ['raise', 50.5])
       assert.equal(50, u.bet.getCall(0).args[0].bet)
 
     it 'raise (no value)', ->
-      u.turn('', ['raise'])
+      u.turn(['raise', 40, 500], ['raise'])
       assert.equal(40, u.bet.getCall(0).args[0].bet)
 
     it 'raise (small)', ->
-      u.turn('', ['raise', 30])
+      u.turn(['raise', 40, 500], ['raise', 30])
       assert.equal(40, u.bet.getCall(0).args[0].bet)
 
     it 'raise (big)', ->
-      u.turn('', ['raise', 501])
+      u.turn(['raise', 40, 500], ['raise', 501])
       assert.equal(40, u.bet.getCall(0).args[0].bet)
 
     it 'bet', ->
-      u.turn('', ['bet', 50])
+      u.turn(['bet', 40, 500], ['bet', 50])
       assert.equal(50, u.bet.getCall(0).args[0].bet)
 
     it 'fold', ->
-      u.commands = -> [['fold']]
-      u.turn('', ['fold'])
+      u.turn(['fold'], ['fold'])
       assert.equal(0, u.bet.getCall(0).args[0].bet)
-
-    it 'fake', ->
-      assert.equal(false, u.turn('', ['fake']) )
-      assert.equal(false, u.turn('', []) )
-      assert.equal(false, u.turn('') )
-      assert.equal(false, u.turn('', 'boom') )
-      assert.equal(0, u.bet.callCount)
 
 
   describe 'commands', ->
@@ -357,11 +371,22 @@ describe 'Player', ->
       u.options.bet = 2
       assert.deepEqual([['fold'], ['call', 8]], u.commands({bet_max: 10, stacks: 1}))
 
+    it 'bet (cap)', ->
+      u.options.bet = 10
+      assert.deepEqual(['check'], u.commands({bet_max: 10})[0])
+      assert.deepEqual(['raise', 20], u.commands({bet_max: 10, cap: 20, bet_raise: 20})[1])
+
+    it 'bet (cap more then chips)', ->
+      u.options.bet = 10
+      u.options.chips = 15
+      assert.deepEqual(['check'], u.commands({bet_max: 10})[0])
+      assert.deepEqual(['raise', 15], u.commands({bet_max: 10, cap: 20, bet_raise: 20})[1])
+
 
   describe 'options bind', ->
     fn = null
     beforeEach ->
-      fn = u._options_bind
+      fn = u.options_bind
 
     it 'rank update', ->
       u.options.cards = [1, 2]

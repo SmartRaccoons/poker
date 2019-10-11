@@ -1,3 +1,4 @@
+events = require('events')
 Rank = require('./rank')
 
 
@@ -16,8 +17,10 @@ _deck = _ranks.reduce (result, item)->
 , []
 
 
-module.exports.Cards = class Cards
+module.exports.Cards = class Cards extends events.EventEmitter
   shuffle: ->
     @_deck = shuffle _deck.slice()
 
-  pop: -> @_deck.pop()
+  deal: (total = 1)->
+    [0...total].map =>
+      @_deck.shift()

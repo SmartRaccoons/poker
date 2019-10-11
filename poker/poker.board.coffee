@@ -1,56 +1,61 @@
-events = require('events')
+Default = require('./default').Default
+cloneDeep = require('lodash').cloneDeep
 
 
-module.exports.PokerBoard = class Board extends events.EventEmitter
-  constructor: ->
-    super()
-    @_cards = []
-    @_pot = []
+module.exports.PokerBoard = class Board extends Default
+  options_default:
+    cards: []
+    pot: []
+    bet_raise_position: -1
+    bet_max: 0
 
-  reset: (params)->
-    @_blinds = params.blinds
-    @_bet_max = 0
-    @_bet_raise = @_blinds[1]
-    @_cards = []
-    @_pot = []
-    @_bet_raise_position = -1
-    @_show_first = params.show_first
+  round: (params)->
+    @options_update Object.assign(cloneDeep(@options_default), {
+      bet_raise: params.blinds[1]
+    }, params)
 
   bet: ({bet, position})->
-    if @_bet_max >= bet
+    if @options.bet_max >= bet
       return
-    bet_diff = bet - @_bet_max
-    if bet_diff > 0
-      @_bet_raise_position = position
-    if bet_diff > @_bet_raise
-      @_bet_raise = Math.ceil(bet_diff / @_blinds[1]) * @_blinds[1]
-    @_bet_max = bet
+    bet_diff = bet - @options.bet_max
+    @options_update Object.assign({
+      bet_max: bet
+      bet_raise_position: position
+    }, if bet_diff > @options.bet_raise then {
+      bet_raise: @_bet_raise_calc(bet_diff)
+    })
 
-  bet_max: -> @_bet_max
+  _bet_raise_calc: (bet_diff)->
+    Math.ceil(bet_diff / @options.blinds[1]) * @options.blinds[1]
 
-  bet_raise: -> @_bet_raise
+  bet_max: -> @options.bet_max
+
+  bet_raise: -> @options.bet_raise
 
   progress: ({cards})->
-    @_bet_raise_position = -1
-    @_cards = @_cards.concat(cards)
+    @options_update {
+      cards: cloneDeep(@options.cards.slice(0).concat(cards))
+      bet_raise_position: -1
+      bet_max: 0
+      bet_raise: @options.blinds[1]
+    }
 
   pot: (bets)->
-    @_bet_max = 0
-    @_bet_raise = @_blinds[1]
     if bets.length is 0
       return
     bets.sort (p1, p2)-> p1.bet - p2.bet
+    pot = JSON.parse(JSON.stringify(@options.pot))
     [0...bets.length]
       .map (i)=>
         if bets[i].fold
-          @_pot.forEach (p)->
+          pot.forEach (p)->
             index = p.positions.indexOf bets[i].position
             if index >= 0
               p.positions.splice(index, 1)
         bet = bets[i].bet
         if bet is 0
           return null
-        pot = bets.reduce (acc, v, j)->
+        pot_new = bets.reduce (acc, v, j)->
           if v.bet >= bet
             bets[j].bet -= bet
             acc.pot += bet
@@ -59,25 +64,26 @@ module.exports.PokerBoard = class Board extends events.EventEmitter
               acc.positions.push(v.position)
           return acc
         , {pot: 0, positions: [], contributors: []}
-        pot.contributors.sort (c1, c2)-> c1.position - c2.position
-        pot.positions.sort()
-        return pot
+        pot_new.contributors.sort (c1, c2)-> c1.position - c2.position
+        pot_new.positions.sort()
+        return pot_new
       .filter (v)-> v isnt null
-      .forEach (pot)=>
-        if pot.contributors.length is 1
-          return @emit 'pot:return', {pot: pot.pot, position: pot.positions[0]}
-        for i in [0...@_pot.length]
-          if pot.positions.join('') is @_pot[i].positions.join('')
-            pot.contributors.forEach (cont)=>
-              index = @_pot[i].contributors.findIndex( (c)-> c.position is cont.position )
+      .forEach (pot_new)=>
+        if pot_new.contributors.length is 1
+          return @emit 'pot:return', {pot: pot_new.pot, position: pot_new.positions[0]}
+        for i in [0...pot.length]
+          if pot_new.positions.join('') is pot[i].positions.join('')
+            pot_new.contributors.forEach (cont)=>
+              index = pot[i].contributors.findIndex( (c)-> c.position is cont.position )
               if index >= 0
-                @_pot[i].contributors[index].bet += cont.bet
+                pot[i].contributors[index].bet += cont.bet
                 return
-              @_pot[i].contributors.push cont
-            @_pot[i].pot += pot.pot
+              pot[i].contributors.push cont
+            pot[i].pot += pot_new.pot
             return
-        @_pot.push pot
-    @emit 'pot:update', @_pot
+        pot.push pot_new
+    @options_update {pot}
+    @emit 'pot:update', pot
 
   pot_devide: (winners_order, rake)->
     winners_total = winners_order.reduce ((acc, v)-> acc + v.length), 0
@@ -88,7 +94,7 @@ module.exports.PokerBoard = class Board extends events.EventEmitter
           return j
       return winners_total + 1
     rake_cap = if rake then rake.cap else 0
-    @_pot.map (pot)=>
+    @options.pot.map (pot)=>
       pot_chips = pot.pot
       if rake
         do =>
@@ -114,7 +120,7 @@ module.exports.PokerBoard = class Board extends events.EventEmitter
         if winners_total <= 1 or pot.positions.length is 1
           return pot
         max_position = Math.max.apply(null, pot.positions)
-        show = if pot.positions.indexOf(@_bet_raise_position) >= 0 then @_bet_raise_position else @_show_first
+        show = if pot.positions.indexOf(@options.bet_raise_position) >= 0 then @options.bet_raise_position else @options.show_first
         last_best = winners_total
         while winners.indexOf(show) is -1
           if pot.positions.indexOf(show) >= 0 and last_best >= winners_index(show)
@@ -126,4 +132,7 @@ module.exports.PokerBoard = class Board extends events.EventEmitter
         pot.showdown = pot.showdown.concat(winners.filter (winner)-> pot.showdown.indexOf(winner) is -1 )
         return pot
 
-  toJSON: -> {pot: @_pot, cards: @_cards}
+  pot_total: ->
+    @options.pot.reduce ((acc, v)-> acc + v.pot ), 0
+
+  toJSON: -> {pot: @options.pot, cards: @options.cards}

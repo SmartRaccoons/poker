@@ -18,7 +18,14 @@ describe 'Cards', ->
       assert.equal 0, cards._deck.filter( (item, pos)-> cards._deck.indexOf(item) isnt pos ).length
       assert.equal 1, cards._deck.filter( (item)-> item is 'Ac' ).length
 
-    it 'pop', ->
+    it 'deal', ->
       cards.shuffle()
-      assert.equal(2, cards.pop().length)
-      assert.equal 51, cards._deck.length
+      dealt = cards.deal(3)
+      assert.equal(3, dealt.length)
+      assert.equal(2, dealt[0].length)
+      assert.equal 49, cards._deck.length
+
+    it 'deal (default)', ->
+      cards.shuffle()
+      dealt = cards.deal()
+      assert.equal(1, dealt.length)
