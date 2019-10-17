@@ -281,6 +281,9 @@ module.exports.Poker = class Poker extends events.EventEmitter
         stacks: @players({fold: false, all_in: false}).length
         blind: @_blinds[1]
         pot: @_board.pot_total()
+        bet_total: @_players.reduce (acc, v)->
+          acc + if v then v.options.bet else 0
+        , 0
         progress: @_progress_round
         cap: if @options.cap then @options.cap[@_progress_round] * @_blinds[1] else null
       })

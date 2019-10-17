@@ -84,35 +84,35 @@ describe 'PokerActionPlayer', ->
     beforeEach ->
       params = {blind: 2, progress: 0, bet_raise: 5}
       p.options.bet = 0
-      PokerPlayer::commands = spy = sinon.fake.returns [1, ['call', 20], ['raise', 5, 50]]
+      PokerPlayer::commands = spy = sinon.fake.returns [['fold'], ['call', 20], ['raise', 5, 50]]
 
     it 'default', ->
       p.commands(params)
       assert.equal 1, spy.callCount
       assert.deepEqual {blind: 2, progress: 0, bet_raise: 5}, spy.getCall(0).args[0]
 
-    it 'leave 2 commands + discard last param', ->
-      assert.deepEqual [1, ['raise', 5]], p.commands(params)
+    it 'discard last param', ->
+      assert.deepEqual [['fold'], ['call', 20], ['raise', 5]], p.commands(params)
 
     it 'only 1 command', ->
-      PokerPlayer::commands = spy = sinon.fake.returns [1]
-      assert.deepEqual [1], p.commands(params)
+      PokerPlayer::commands = spy = sinon.fake.returns [['fold']]
+      assert.deepEqual [['fold']], p.commands(params)
 
     it 'previous bet', ->
-      p.options.bet = 2
-      assert.deepEqual [1, ['call', 20]], p.commands(params)
+      p.options.bet = 3
+      assert.deepEqual [['fold'], ['call', 20]], p.commands(params)
 
     it 'previous small bet', ->
       p.options.bet = 1
-      assert.deepEqual [1, ['raise', 5]], p.commands(params)
+      assert.deepEqual [['fold'], ['call', 20], ['raise', 5]], p.commands(params)
 
     it 'progress 0', ->
       p.commands Object.assign {}, params, {blind: 11, progress: 0}
       assert.equal 16, spy.getCall(0).args[0].bet_raise
 
     it 'progress 1', ->
-      p.commands Object.assign {}, params, {blind: 11, pot: 38, progress: 1}
-      assert.equal 12, spy.getCall(0).args[0].bet_raise
+      p.commands Object.assign {}, params, {blind: 11, pot: 30, bet_total: 8, progress: 1}
+      assert.equal 15, spy.getCall(0).args[0].bet_raise
 
 
   describe 'turn_action', ->

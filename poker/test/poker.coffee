@@ -478,11 +478,12 @@ describe 'Poker', ->
       p._waiting = 1
       p._board.bet_max = -> 5
       p._board.bet_raise = -> 3
+      player1.options.bet = 1
       p._players = [null, player1]
       player1.commands = sinon.fake.returns('commands')
       assert.deepEqual({commands: 'commands'}, p._waiting_commands())
       assert.equal(1, player1.commands.callCount)
-      assert.deepEqual({bet_max: 5, cap: null, bet_raise: 3, stacks: 2, blind: 2, pot: 5, progress: 5}, player1.commands.getCall(0).args[0])
+      assert.deepEqual({bet_max: 5, cap: null, bet_raise: 3, stacks: 2, blind: 2, pot: 5, bet_total: 1, progress: 5}, player1.commands.getCall(0).args[0])
       assert.equal(1, p.players.callCount)
       assert.deepEqual({fold: false, all_in: false}, p.players.getCall(0).args[0])
       assert.equal 1, p._board.pot_total.callCount
