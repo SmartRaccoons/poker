@@ -31,13 +31,15 @@ module.exports.PokerActionPlayer = class PokerActionPlayer extends PokerPlayer
     })
 
   commands: (params)->
-    raise = Math.floor(if params.progress > 0 then (params.pot + params.bet_total) * 0.4 else params.blind * 1.5)
-    if raise > params.bet_raise
-      params.bet_raise = raise
+    params.bet_raise = Math.max(
+      params.bet_raise
+      Math.floor(params.blind * 1.5)
+      Math.floor((params.pot + params.bet_total) / 3)
+    )
     commands = super(params)
     if commands.length < 2
       return commands
-    if commands.length > 2 and @options.bet > params.blind
+    if commands.length > 2 and params.bet_raise_count > 2
       commands = [commands[0], commands[1]]
     commands.map (c)-> c.slice(0, 2)
 

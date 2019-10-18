@@ -82,7 +82,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
     if position is -1
       return false
     player = new (@Player)(Object.assign({position, chips: @_chips_start, command: 'fold'}, data))
-    player.on 'bet', ({bet, blind})=> @_board.bet({position, bet})
+    player.on 'bet', ({bet})=> @_board.bet({position, bet, command: player.options.command})
     ['turn', 'win', 'out', 'last', 'bet_return', 'readd'].forEach (ev)=>
       player.on ev, (params)=> @emit "#{ev}", Object.assign({position}, params)
     player.on 'remove_safe', => @emit 'player:remove_safe', @_player_remove_options(player)
@@ -278,6 +278,7 @@ module.exports.Poker = class Poker extends events.EventEmitter
       commands: @_players[@_waiting].commands({
         bet_max: @_board.bet_max()
         bet_raise: @_board.bet_raise()
+        bet_raise_count: @_board.bet_raise_count()
         stacks: @players({fold: false, all_in: false}).length
         blind: @_blinds[1]
         pot: @_board.pot_total()

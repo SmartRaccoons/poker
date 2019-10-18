@@ -82,14 +82,14 @@ describe 'PokerActionPlayer', ->
   describe 'commands', ->
     params = null
     beforeEach ->
-      params = {blind: 2, progress: 0, bet_raise: 5}
+      params = {blind: 2, progress: 0, bet_raise: 5, bet_raise_count: 0, pot: 10, bet_total: 10}
       p.options.bet = 0
       PokerPlayer::commands = spy = sinon.fake.returns [['fold'], ['call', 20], ['raise', 5, 50]]
 
     it 'default', ->
       p.commands(params)
       assert.equal 1, spy.callCount
-      assert.deepEqual {blind: 2, progress: 0, bet_raise: 5}, spy.getCall(0).args[0]
+      assert.deepEqual params, spy.getCall(0).args[0]
 
     it 'discard last param', ->
       assert.deepEqual [['fold'], ['call', 20], ['raise', 5]], p.commands(params)
@@ -98,21 +98,16 @@ describe 'PokerActionPlayer', ->
       PokerPlayer::commands = spy = sinon.fake.returns [['fold']]
       assert.deepEqual [['fold']], p.commands(params)
 
-    it 'previous bet', ->
-      p.options.bet = 3
-      assert.deepEqual [['fold'], ['call', 20]], p.commands(params)
+    it '3rd raise', ->
+      assert.deepEqual [['fold'], ['call', 20]], p.commands(Object.assign {}, params, {bet_raise_count: 3})
 
-    it 'previous small bet', ->
-      p.options.bet = 1
-      assert.deepEqual [['fold'], ['call', 20], ['raise', 5]], p.commands(params)
-
-    it 'progress 0', ->
-      p.commands Object.assign {}, params, {blind: 11, progress: 0}
+    it 'blind raise', ->
+      p.commands Object.assign {}, params, {blind: 11}
       assert.equal 16, spy.getCall(0).args[0].bet_raise
 
-    it 'progress 1', ->
-      p.commands Object.assign {}, params, {blind: 11, pot: 30, bet_total: 8, progress: 1}
-      assert.equal 15, spy.getCall(0).args[0].bet_raise
+    it 'pot raise', ->
+      p.commands Object.assign {}, params, {blind: 11, pot: 45}
+      assert.equal 18, spy.getCall(0).args[0].bet_raise
 
 
   describe 'turn_action', ->

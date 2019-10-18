@@ -198,9 +198,10 @@ describe 'Poker', ->
       p.player_add({id: 1})
       p.player_add({id: 2})
       p._board.bet = sinon.spy()
-      p._players[0].emit 'bet', {bet: 10, blind: true}
+      p._players[0].options.command = 'blind'
+      p._players[0].emit 'bet', {bet: 10}
       assert.equal(1, p._board.bet.callCount)
-      assert.deepEqual({bet: 10, position: 0}, p._board.bet.getCall(0).args[0])
+      assert.deepEqual({bet: 10, position: 0, command: 'blind'}, p._board.bet.getCall(0).args[0])
 
     it 'player_add (turn)', ->
       p.player_add({id: 1})
@@ -478,12 +479,13 @@ describe 'Poker', ->
       p._waiting = 1
       p._board.bet_max = -> 5
       p._board.bet_raise = -> 3
+      p._board.bet_raise_count = sinon.fake.returns 6
       player1.options.bet = 1
       p._players = [null, player1]
       player1.commands = sinon.fake.returns('commands')
       assert.deepEqual({commands: 'commands'}, p._waiting_commands())
       assert.equal(1, player1.commands.callCount)
-      assert.deepEqual({bet_max: 5, cap: null, bet_raise: 3, stacks: 2, blind: 2, pot: 5, bet_total: 1, progress: 5}, player1.commands.getCall(0).args[0])
+      assert.deepEqual({bet_max: 5, cap: null, bet_raise: 3, bet_raise_count: 6, stacks: 2, blind: 2, pot: 5, bet_total: 1, progress: 5}, player1.commands.getCall(0).args[0])
       assert.equal(1, p.players.callCount)
       assert.deepEqual({fold: false, all_in: false}, p.players.getCall(0).args[0])
       assert.equal 1, p._board.pot_total.callCount

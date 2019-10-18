@@ -7,6 +7,7 @@ module.exports.PokerBoard = class Board extends Default
     cards: []
     pot: []
     bet_raise_position: -1
+    bet_raise_count: 0
     bet_max: 0
 
   round: (params)->
@@ -14,16 +15,22 @@ module.exports.PokerBoard = class Board extends Default
       bet_raise: params.blinds[1]
     }, params)
 
-  bet: ({bet, position})->
+  bet: ({bet, position, command})->
     if @options.bet_max >= bet
       return
     bet_diff = bet - @options.bet_max
-    @options_update Object.assign({
-      bet_max: bet
-      bet_raise_position: position
-    }, if bet_diff > @options.bet_raise then {
-      bet_raise: @_bet_raise_calc(bet_diff)
-    })
+    @options_update Object.assign(
+      {
+        bet_max: bet
+        bet_raise_position: position
+      }
+      if command isnt 'blind' then {
+        bet_raise_count: @options.bet_raise_count + 1
+      }
+      if bet_diff > @options.bet_raise then {
+        bet_raise: @_bet_raise_calc(bet_diff)
+      }
+    )
 
   _bet_raise_calc: (bet_diff)->
     Math.ceil(bet_diff / @options.blinds[1]) * @options.blinds[1]
@@ -32,11 +39,14 @@ module.exports.PokerBoard = class Board extends Default
 
   bet_raise: -> @options.bet_raise
 
+  bet_raise_count: -> @options.bet_raise_count
+
   progress: ({cards})->
     @options_update {
       cards: cloneDeep(@options.cards.slice(0).concat(cards))
-      bet_raise_position: -1
-      bet_max: 0
+      bet_raise_position: @options_default.bet_raise_position
+      bet_raise_count: @options_default.bet_raise_count
+      bet_max: @options_default.bet_max
       bet_raise: @options.blinds[1]
     }
 

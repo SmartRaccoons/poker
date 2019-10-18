@@ -17,6 +17,7 @@ describe 'Board', ->
       assert.deepEqual([], b.options.pot)
       assert.equal(0, b.options.bet_max)
       assert.equal(-1, b.options.bet_raise_position)
+      assert.equal(0, b.options.bet_raise_count)
 
     it 'round', ->
       b.options_update = sinon.spy()
@@ -26,6 +27,7 @@ describe 'Board', ->
       assert.equal('f', b.options_update.getCall(0).args[0].show_first)
       assert.equal(2, b.options_update.getCall(0).args[0].bet_raise)
       assert.equal(-1, b.options_update.getCall(0).args[0].bet_raise_position)
+      assert.equal(0, b.options_update.getCall(0).args[0].bet_raise_count)
 
     it 'bet_max', ->
       b.options.bet_max = 5
@@ -35,6 +37,10 @@ describe 'Board', ->
       b.options.bet_raise = 3
       assert.equal(3, b.bet_raise())
 
+    it 'bet_raise_count', ->
+      b.options.bet_raise_count = 4
+      assert.equal(4, b.bet_raise_count())
+
     it '_bet_raise_calc', ->
       b.options.blinds = [1, 3]
       assert.equal 6, b._bet_raise_calc(5)
@@ -43,13 +49,14 @@ describe 'Board', ->
     it 'progress', ->
       b.options_update = sinon.spy()
       b.options.bet_raise_position = 2
+      b.options.bet_raise_count = 3
       b.options.bet_raise = 3
       b.options.blinds = [2, 4]
       b.options.bet_max = 6
       b.options.cards = [3, 4]
       b.progress({cards: [1, 2]})
       assert.equal(1, b.options_update.callCount)
-      assert.deepEqual({cards: [3, 4, 1, 2], bet_max: 0, bet_raise: 4, bet_raise_position: -1}, b.options_update.getCall(0).args[0])
+      assert.deepEqual({cards: [3, 4, 1, 2], bet_max: 0, bet_raise: 4, bet_raise_position: -1, bet_raise_count: 0}, b.options_update.getCall(0).args[0])
 
     it 'pot_total', ->
       b.options.pot = [{pot: 20}, {pot: 10}]
@@ -67,6 +74,7 @@ describe 'Board', ->
       b.options.bet_max = 10
       b.options.blinds = [1, 3]
       b.options.bet_raise = 1
+      b.options.bet_raise_count = 1
       b._bet_raise_calc = sinon.fake.returns 5
 
     it 'same', ->
@@ -77,14 +85,18 @@ describe 'Board', ->
     it 'small', ->
       b.bet({bet: 11, position: 2})
       assert.equal(1, b.options_update.callCount)
-      assert.deepEqual({bet_max: 11, bet_raise_position: 2}, b.options_update.getCall(0).args[0])
+      assert.deepEqual({bet_max: 11, bet_raise_position: 2, bet_raise_count: 2}, b.options_update.getCall(0).args[0])
 
     it 'raise up', ->
       b.bet({bet: 12, position: 2})
       assert.equal(1, b.options_update.callCount)
-      assert.deepEqual({bet_max: 12, bet_raise_position: 2, bet_raise: 5}, b.options_update.getCall(0).args[0])
+      assert.deepEqual({bet_max: 12, bet_raise_position: 2, bet_raise_count: 2, bet_raise: 5}, b.options_update.getCall(0).args[0])
       assert.equal 1, b._bet_raise_calc.callCount
       assert.equal 2, b._bet_raise_calc.getCall(0).args[0]
+
+    it 'command blind', ->
+      b.bet({bet: 11, position: 2, command: 'blind'})
+      assert.equal false, Object.keys(b.options_update.getCall(0).args[0]).indexOf('bet_raise_count') >= 0
 
 
   describe 'pot', ->
