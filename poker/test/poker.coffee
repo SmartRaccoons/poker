@@ -727,6 +727,16 @@ describe 'Poker', ->
       assert.deepEqual(['boom', 2], player1.turn.getCall(0).args[0])
       assert.deepEqual(['boom', 2], player1.turn.getCall(0).args[1])
 
+    it 'command same', ->
+      p._waiting_commands = sinon.fake.returns({commands: [['boom', 2], ['boom', 5]]})
+      p.turn(['boom', 5])
+      assert.deepEqual(['boom', 5], player1.turn.getCall(0).args[0])
+
+    it 'command same (not found)', ->
+      p._waiting_commands = sinon.fake.returns({commands: [['boom', 2], ['boom', 5]]})
+      p.turn(['boom'])
+      assert.deepEqual(['boom', 2], player1.turn.getCall(0).args[0])
+
 
   describe '_progress_action', ->
     beforeEach ->

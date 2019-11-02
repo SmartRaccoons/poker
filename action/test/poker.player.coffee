@@ -106,8 +106,24 @@ describe 'PokerActionPlayer', ->
       assert.equal 16, spy.getCall(0).args[0].bet_raise
 
     it 'pot raise', ->
-      p.commands Object.assign {}, params, {blind: 11, pot: 45}
+      p.commands Object.assign {}, params, {blind: 8, pot: 45}
       assert.equal 18, spy.getCall(0).args[0].bet_raise
+
+    it 'add 3rd command', ->
+      PokerPlayer::commands = spy = sinon.fake.returns [['fold'], ['raise', 10, 50]]
+      assert.deepEqual [['fold'], ['raise', 10], ['raise', 20]], p.commands(params)
+
+    it 'add 3rd command (blinds raise)', ->
+      PokerPlayer::commands = spy = sinon.fake.returns [['fold'], ['raise', 5, 50]]
+      assert.deepEqual [['fold'], ['raise', 5], ['raise', 15]], p.commands(Object.assign({}, params, {blind: 5}))
+
+    it 'add 3rd command (big raise)', ->
+      PokerPlayer::commands = spy = sinon.fake.returns [['fold'], ['raise', 26, 50]]
+      assert.deepEqual [['fold'], ['raise', 26], ['raise', 50]], p.commands(params)
+
+    it 'add 3rd command (no raise)', ->
+      PokerPlayer::commands = spy = sinon.fake.returns [['fold'], ['raise', 50]]
+      assert.deepEqual [['fold'], ['raise', 50]], p.commands(params)
 
 
   describe 'turn_action', ->

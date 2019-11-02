@@ -293,7 +293,13 @@ module.exports.Poker = class Poker extends events.EventEmitter
   turn: (command)->
     commands = @_waiting_commands().commands
     if command
-      params = commands.find (c)-> c[0] is command[0]
+      params = do =>
+        more = commands.filter (c)-> c[0] is command[0]
+        if more.length > 1
+          more2 = more.find (c)-> c[1] is command[1]
+          if more2
+            return more2
+        return more[0]
     if !params
       command = params = commands[0]
       @_players[@_waiting].out({out: true})

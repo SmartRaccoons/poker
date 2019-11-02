@@ -41,6 +41,15 @@ module.exports.PokerActionPlayer = class PokerActionPlayer extends PokerPlayer
       return commands
     if commands.length > 2 and params.bet_raise_count > 2
       commands = [commands[0], commands[1]]
+    else if commands.length is 2 and commands[1].length is 3
+      raise = Math.max(
+        Math.floor(params.blind * 3)
+        Math.floor(commands[1][1] * 2)
+      )
+      commands.push [
+        commands[1][0]
+        if raise > commands[1][2] then commands[1][2] else raise
+      ]
     commands.map (c)-> c.slice(0, 2)
 
 
