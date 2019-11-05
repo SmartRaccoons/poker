@@ -703,8 +703,10 @@ describe 'Poker', ->
       p._activity_clear = sinon.spy()
       p._progress = sinon.spy()
       p._players = [null, player1]
+      p._progress_round = 0
       player1.out = sinon.spy()
       player1.turn = sinon.fake.returns(true)
+      player1.options.out = true
 
     it 'default', ->
       p.turn(['bem'])
@@ -726,6 +728,29 @@ describe 'Poker', ->
       assert.equal(1, player1.out.callCount)
       assert.deepEqual(['boom', 2], player1.turn.getCall(0).args[0])
       assert.deepEqual(['boom', 2], player1.turn.getCall(0).args[1])
+
+    it 'command empty (auto fold)', ->
+      p._waiting_commands = sinon.fake.returns({commands: [['check'], ['bet', 2, 5]]})
+      p.turn()
+      assert.deepEqual(['check'], player1.turn.getCall(0).args[0])
+      assert.deepEqual(['fold'], player1.turn.getCall(0).args[1])
+
+    it 'command empty (auto fold) no check', ->
+      p._waiting_commands = sinon.fake.returns({commands: [['notcheck'], ['bet', 2, 5]]})
+      p.turn()
+      assert.notEqual('fold', player1.turn.getCall(0).args[1][0])
+
+    it 'command empty (auto fold) not out', ->
+      player1.options.out = false
+      p._waiting_commands = sinon.fake.returns({commands: [['check'], ['bet', 2, 5]]})
+      p.turn()
+      assert.notEqual('fold', player1.turn.getCall(0).args[1][0])
+
+    it 'command empty (auto fold) other rounds', ->
+      p._progress_round = 1
+      p._waiting_commands = sinon.fake.returns({commands: [['check'], ['bet', 2, 5]]})
+      p.turn()
+      assert.notEqual('fold', player1.turn.getCall(0).args[1][0])
 
     it 'command same', ->
       p._waiting_commands = sinon.fake.returns({commands: [['boom', 2], ['boom', 5]]})

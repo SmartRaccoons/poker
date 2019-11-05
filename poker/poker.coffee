@@ -302,6 +302,8 @@ module.exports.Poker = class Poker extends events.EventEmitter
         return more[0]
     if !params
       command = params = commands[0]
+      if @_progress_round is 0 and command[0] is 'check' and @_players[@_waiting].options.out
+        command = ['fold']
       @_players[@_waiting].out({out: true})
     @_players[@_waiting].turn(params, command)
     @_activity_clear()
