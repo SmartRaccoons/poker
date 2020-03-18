@@ -341,77 +341,86 @@ describe 'Poker', ->
       assert.equal(true, p._started)
       assert.equal(1, p.round.callCount)
 
-    it 'round', ->
-      p._emit_round_params = ->
-      p._showdown_call = true
-      p._dealer = 0
-      p._players = [player1, player2, player3]
-      p._progress = sinon.spy()
-      p._blinds = [2, 4]
-      p._round_count = 1
-      p.round()
-      assert.equal(2, p._round_count)
-      assert.equal(1, p._board.round.callCount)
-      assert.deepEqual({blinds: [2, 4], show_first: 2}, p._board.round.getCall(0).args[0])
-      assert.equal(1, p._cards.shuffle.callCount)
-      assert.equal(1, player3.bet.callCount)
-      assert.deepEqual({bet: 2, command: 'blind'}, player3.bet.getCall(0).args[0])
-      assert.equal(1, player1.bet.callCount)
-      assert.deepEqual({bet: 4, command: 'blind'}, player1.bet.getCall(0).args[0])
-      assert.equal(1, p._dealer)
-      assert.equal(0, p._waiting)
-      assert.deepEqual([2, 0], p._blinds_position)
-      assert.equal(0, p._progress_round)
-      assert.equal(1, p._progress.callCount)
-      assert.equal(false, p._showdown_call)
 
-    it 'round (blinds_next)', ->
-      p._blinds = [1, 2]
-      p._blinds_next = [2, 4]
-      p._players = [player1, player2]
-      p.round()
-      assert.deepEqual([2, 4], p._blinds)
-      assert.deepEqual(null, p._blinds_next)
-      p.round()
-      assert.deepEqual([2, 4], p._blinds)
+    describe 'round', ->
+      beforeEach ->
+        p._emit_round_params = ->
+        p._showdown_call = true
+        p._dealer = 0
+        p._players = [player1, player2, player3]
+        p._progress = sinon.spy()
+        p._blinds = [2, 4]
+        p._round_count = 1
 
-    it 'round (2 players)', ->
-      p._dealer = 0
-      p._players = [player1, player2]
-      p.round()
-      assert.equal(2, player1.bet.getCall(0).args[0].bet)
-      assert.equal(0, p._waiting)
-      assert.deepEqual([1, 0], p._blinds_position)
+      it 'default', ->
+        p.round()
+        assert.equal(2, p._round_count)
+        assert.equal(1, p._board.round.callCount)
+        assert.deepEqual({bet_raise_default: 4, show_first: 2}, p._board.round.getCall(0).args[0])
+        assert.equal(1, p._cards.shuffle.callCount)
+        assert.equal(1, player3.bet.callCount)
+        assert.deepEqual({bet: 2, command: 'blind'}, player3.bet.getCall(0).args[0])
+        assert.equal(1, player1.bet.callCount)
+        assert.deepEqual({bet: 4, command: 'blind'}, player1.bet.getCall(0).args[0])
+        assert.equal(1, p._dealer)
+        assert.equal(0, p._waiting)
+        assert.deepEqual([2, 0], p._blinds_position)
+        assert.equal(0, p._progress_round)
+        assert.equal(1, p._progress.callCount)
+        assert.equal(false, p._showdown_call)
 
-    it 'round (players)', ->
-      p._players = [player1, player2]
-      p._round_player_addon =  sinon.fake.returns('add')
-      p.round()
-      assert.equal(2, p._round_player_addon.callCount)
-      assert.deepEqual(player1, p._round_player_addon.getCall(0).args[0])
-      assert.equal(1, player1.round.callCount)
-      assert.equal(1, player2.round.callCount)
-      assert.equal(1, player1.round.callCount)
-      assert.equal('add', player1.round.getCall(0).args[0])
-      assert.equal(1, player2.round.callCount)
-      assert.equal('add', player2.round.getCall(0).args[0])
+      it 'bet_raise_blind', ->
+        p.options.bet_raise_blind = 5
+        p.round()
+        assert.equal 20, p._board.round.getCall(0).args[0].bet_raise_default
 
-    it 'round (emit)', ->
-      p._players = [player1, player2]
-      player1.options.bet = 1
-      player1.options.command = 'c'
-      player2.options.bet = 2
-      player2.options.command = 'c2'
-      a = 0
-      p._cards.deal = ->
-        a++
-        a
-      p._emit_round_params = sinon.fake.returns [1, 2]
-      p.on 'round', spy
-      p.round()
-      assert.equal(1, spy.callCount)
-      assert.equal(1, spy.getCall(0).args[0])
-      assert.equal(2, spy.getCall(0).args[1])
+      it 'blinds_next', ->
+        p._blinds_next = [2, 4]
+        p._players = [player1, player2]
+        p.round()
+        assert.deepEqual([2, 4], p._blinds)
+        assert.deepEqual(null, p._blinds_next)
+        p.round()
+        assert.deepEqual([2, 4], p._blinds)
+
+      it '2 players', ->
+        p._players = [player1, player2]
+        p.round()
+        assert.equal(4, player1.bet.getCall(0).args[0].bet)
+        assert.equal(2, player2.bet.getCall(0).args[0].bet)
+        assert.equal(0, p._waiting)
+        assert.deepEqual([1, 0], p._blinds_position)
+
+      it 'players', ->
+        p._players = [player1, player2]
+        p._round_player_addon =  sinon.fake.returns('add')
+        p.round()
+        assert.equal(2, p._round_player_addon.callCount)
+        assert.deepEqual(player1, p._round_player_addon.getCall(0).args[0])
+        assert.equal(1, player1.round.callCount)
+        assert.equal(1, player2.round.callCount)
+        assert.equal(1, player1.round.callCount)
+        assert.equal('add', player1.round.getCall(0).args[0])
+        assert.equal(1, player2.round.callCount)
+        assert.equal('add', player2.round.getCall(0).args[0])
+
+      it 'emit', ->
+        p._players = [player1, player2]
+        player1.options.bet = 1
+        player1.options.command = 'c'
+        player2.options.bet = 2
+        player2.options.command = 'c2'
+        a = 0
+        p._cards.deal = ->
+          a++
+          a
+        p._emit_round_params = sinon.fake.returns [1, 2]
+        p.on 'round', spy
+        p.round()
+        assert.equal(1, spy.callCount)
+        assert.equal(1, spy.getCall(0).args[0])
+        assert.equal(2, spy.getCall(0).args[1])
+
 
     it '_round_player_addon', ->
       p._cards.deal = sinon.fake.returns [1, 2]

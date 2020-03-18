@@ -9,7 +9,7 @@ describe 'Board', ->
   spy = null
   beforeEach ->
     spy = sinon.spy()
-    b = new Board({blinds: [1, 2], show_first: 2})
+    b = new Board({show_first: 2})
 
   describe 'default', ->
     it 'constructor', ->
@@ -21,9 +21,8 @@ describe 'Board', ->
 
     it 'round', ->
       b.options_update = sinon.spy()
-      b.round({blinds: [1, 2], show_first: 'f'})
+      b.round({show_first: 'f', bet_raise_default: 2})
       assert.equal(1, b.options_update.callCount)
-      assert.deepEqual([1, 2], b.options_update.getCall(0).args[0].blinds)
       assert.equal('f', b.options_update.getCall(0).args[0].show_first)
       assert.equal(2, b.options_update.getCall(0).args[0].bet_raise)
       assert.equal(-1, b.options_update.getCall(0).args[0].bet_raise_position)
@@ -42,7 +41,7 @@ describe 'Board', ->
       assert.equal(4, b.bet_raise_count())
 
     it '_bet_raise_calc', ->
-      b.options.blinds = [1, 3]
+      b.options.bet_raise_default = 3
       assert.equal 6, b._bet_raise_calc(5)
       assert.equal 9, b._bet_raise_calc(7)
 
@@ -51,7 +50,7 @@ describe 'Board', ->
       b.options.bet_raise_position = 2
       b.options.bet_raise_count = 3
       b.options.bet_raise = 3
-      b.options.blinds = [2, 4]
+      b.options.bet_raise_default = 4
       b.options.bet_max = 6
       b.options.cards = [3, 4]
       b.progress({cards: [1, 2]})
@@ -72,7 +71,7 @@ describe 'Board', ->
     beforeEach ->
       b.options_update = sinon.spy()
       b.options.bet_max = 10
-      b.options.blinds = [1, 3]
+      b.options.bet_raise_default = 3
       b.options.bet_raise = 1
       b.options.bet_raise_count = 1
       b._bet_raise_calc = sinon.fake.returns 5

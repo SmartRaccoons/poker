@@ -22,6 +22,9 @@ module.exports.Poker = class Poker extends events.EventEmitter
       # progress: 1
       # cap: 30 # [[2, 20], [3, 40], []]; []
     # cap: [2, 2, 3, 3]
+    # cap_round: 10
+    # antes: 10 # [1, 2, 3, 4]
+    bet_raise_blind: 1
 
   constructor: (options = {})-> #{blinds, buy_in}
     super()
@@ -145,7 +148,10 @@ module.exports.Poker = class Poker extends events.EventEmitter
     if players.length > 2
       @_blinds_position[0] = @_player_position_next(@_dealer)
     @_waiting = @_blinds_position[1] = @_player_position_next(@_blinds_position[0])
-    @_board.round({blinds: @_blinds.slice(0), show_first: @_player_position_next(@_dealer)})
+    @_board.round {
+      bet_raise_default: @_blinds[1] * @options.bet_raise_blind
+      show_first: @_player_position_next(@_dealer)
+    }
     [0, 1].forEach (id)=> @_players[@_blinds_position[id]].bet({bet: @_blinds[id], command: 'blind'})
     @_rake = @_rake_calc(players.length)
     @emit.apply @, ['round'].concat(@_emit_round_params())

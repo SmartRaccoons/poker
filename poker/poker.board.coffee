@@ -12,7 +12,7 @@ module.exports.PokerBoard = class Board extends Default
 
   round: (params)->
     @options_update Object.assign(cloneDeep(@options_default), {
-      bet_raise: params.blinds[1]
+      bet_raise: params.bet_raise_default
     }, params)
 
   bet: ({bet, position, command})->
@@ -33,7 +33,7 @@ module.exports.PokerBoard = class Board extends Default
     )
 
   _bet_raise_calc: (bet_diff)->
-    Math.ceil(bet_diff / @options.blinds[1]) * @options.blinds[1]
+    Math.ceil(bet_diff / @options.bet_raise_default) * @options.bet_raise_default
 
   bet_max: -> @options.bet_max
 
@@ -47,7 +47,7 @@ module.exports.PokerBoard = class Board extends Default
       bet_raise_position: @options_default.bet_raise_position
       bet_raise_count: @options_default.bet_raise_count
       bet_max: @options_default.bet_max
-      bet_raise: @options.blinds[1]
+      bet_raise: @options.bet_raise_default
     }
 
   pot: (bets)->
