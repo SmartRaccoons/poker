@@ -43,7 +43,7 @@ module.exports.PokerPlayer = class Player extends Default
     'rounds_out': -> @emit 'rounds_out', {rounds_out: @options.rounds_out}
 
   constructor: (options)->
-    super Object.assign({chips_start: options.chips}, options)
+    super Object.assign({chips_start: options.chips, chips_cap: options.chips}, options)
 
   _remove_safe: ->
     if @options.last and (@fold() or @options.cards.length is 0)
@@ -61,6 +61,7 @@ module.exports.PokerPlayer = class Player extends Default
       {
         rounds: @options.rounds + 1
         chips_last: chips
+        chips_cap: if !params.chips_cap or params.chips_cap > chips then chips else params.chips_cap
         chips
       }, if @options.out then {rounds_out: @options.rounds_out + 1})
 
@@ -83,18 +84,20 @@ module.exports.PokerPlayer = class Player extends Default
   id: -> @options.id
 
   bet: ({bet, command})->
-    bet = if bet >= @options.chips then @options.chips else bet
+    bet = if bet >= @options.chips_cap then @options.chips_cap else bet
     @options_update Object.assign({
-      command: if bet is @options.chips then 'all_in' else command
+      command: if bet is @options.chips_cap then 'all_in' else command
       bet: @options.bet + bet
       chips: @options.chips - bet
-    }, if command isnt 'blind' then {talked: true} )
+      chips_cap: @options.chips_cap - bet
+    }, if !( command in ['ante', 'blind'] ) then {talked: true} )
     bet
 
   bet_return: ({bet})->
     @options_update
       bet: @options.bet - bet
       chips: @options.chips + bet
+      chips_cap: @options.chips_cap + bet
     @emit 'bet_return', {bet}
 
   bet_pot: ->
@@ -146,11 +149,11 @@ module.exports.PokerPlayer = class Player extends Default
       return commands
     call = bet_max - @options.bet
     if @options.bet < bet_max
-      commands.push(['call', if call > @options.chips then @options.chips else call])
-    if stacks is 1 or call >= @options.chips
+      commands.push(['call', if call > @options.chips_cap then @options.chips_cap else call])
+    if stacks is 1 or call >= @options.chips_cap
       return commands
     raise = call + bet_raise
-    cap = if cap and cap <= @options.chips then cap else @options.chips
+    cap = if cap and cap <= @options.chips_cap then cap else @options.chips_cap
     commands.push [if bet_max is 0 then 'bet' else 'raise'].concat( if raise >= cap then [cap] else [raise, cap] )
     return commands
 
@@ -161,6 +164,7 @@ module.exports.PokerPlayer = class Player extends Default
   toJSON: (user_id)->
     Object.assign(
       _pick @options, Object.keys(@options_default).filter( (k)-> ['cards_board'].indexOf(k) is -1 )
+      if @options.chips isnt @options.chips_cap then { chips_cap: @options.chips_cap }
       if user_id is @options.id then {hero: true}
       if user_id isnt @options.id and !@options.showdown then { cards: @options.cards.map (c)-> ''  }
     )

@@ -50,7 +50,7 @@ module.exports.PokerBoard = class Board extends Default
       bet_raise: @options.bet_raise_default
     }
 
-  pot: (bets)->
+  pot: (bets, silent = false)->
     if bets.length is 0
       return
     bets.sort (p1, p2)-> p1.bet - p2.bet
@@ -93,7 +93,8 @@ module.exports.PokerBoard = class Board extends Default
             return
         pot.push pot_new
     @options_update {pot}
-    @emit 'pot:update', pot
+    if !silent
+      @emit 'pot:update', pot
 
   pot_devide: (winners_order, rake)->
     winners_total = winners_order.reduce ((acc, v)-> acc + v.length), 0

@@ -100,18 +100,23 @@ describe 'Board', ->
 
   describe 'pot', ->
     spy2 = null
+    spy3 = null
     beforeEach ->
       spy2 = sinon.spy()
       b.options_update = spy = sinon.spy()
-
-    it 'equal', ->
       spy3 = sinon.spy()
       b.on 'pot:update', spy3
+
+    it 'equal', ->
       b.pot([{bet: 10, position: 0}, {bet: 10, position: 1}])
       assert.equal(1, spy.callCount)
       assert.deepEqual([ { pot: 20, positions: [0, 1], contributors: [ {position: 0, bet: 10}, {position: 1, bet: 10} ] } ], spy.getCall(0).args[0].pot)
       assert.equal(1, spy3.callCount)
       assert.deepEqual([ { pot: 20, positions: [0, 1], contributors: [ {position: 0, bet: 10}, {position: 1, bet: 10} ] } ], spy3.getCall(0).args[0])
+
+    it 'silent', ->
+      b.pot([{bet: 10, position: 0}, {bet: 10, position: 1}], true)
+      assert.equal(0, spy3.callCount)
 
     it 'negative progression', ->
       b.pot([{bet: 20, position: 0}, {bet: 20, position: 1}, {bet: 10, position: 2}, {bet: 10, position: 3}])
