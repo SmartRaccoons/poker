@@ -77,13 +77,21 @@ describe 'Poker', ->
       assert.equal(1500, p._chips_start)
       assert.equal(0, p._round_count)
 
-    it 'contructor (default)', ->
+    it 'constructor (default)', ->
       p = new Poker()
       assert.deepEqual([1, 2], p.options.blinds)
       assert.deepEqual([2, 9], p.options.players)
       assert.equal(10, p.options.timeout)
       assert.equal(false, p.options.autostart)
       assert.equal(1000, p.options.delay_progress)
+      assert.equal(null, p.options.cap)
+      assert.equal(null, p.options.cap_player)
+      assert.equal(null, p.options.ante)
+
+    it 'constructor antes', ->
+      p = new Poker({ante: 1})
+      assert.equal(1, p._ante)
+
 
     it 'constructor (users)', ->
       class Poker2 extends Poker
@@ -351,9 +359,11 @@ describe 'Poker', ->
         p._progress = sinon.spy()
         p._blinds = [2, 4]
         p._round_count = 1
+        p._progress_pot = sinon.spy()
 
       it 'default', ->
         p.round()
+        assert.equal 0, p._progress_pot.callCount
         assert.equal(2, p._round_count)
         assert.equal(1, p._board.round.callCount)
         assert.deepEqual({bet_raise_default: 4, show_first: 2}, p._board.round.getCall(0).args[0])
@@ -362,12 +372,54 @@ describe 'Poker', ->
         assert.deepEqual({bet: 2, command: 'blind'}, player3.bet.getCall(0).args[0])
         assert.equal(1, player1.bet.callCount)
         assert.deepEqual({bet: 4, command: 'blind'}, player1.bet.getCall(0).args[0])
+        assert.equal(0, player2.bet.callCount)
         assert.equal(1, p._dealer)
         assert.equal(0, p._waiting)
-        assert.deepEqual([2, 0], p._blinds_position)
         assert.equal(0, p._progress_round)
         assert.equal(1, p._progress.callCount)
         assert.equal(false, p._showdown_call)
+
+      it '3 blinds', ->
+        p._players = [player2, {round: ->}, player3, player1]
+        p._blinds = [2, 4, 8]
+        p.round()
+        assert.equal 2, player3.bet.getCall(0).args[0].bet
+        assert.equal 4, player1.bet.getCall(0).args[0].bet
+        assert.equal 1, player2.bet.callCount
+        assert.deepEqual({bet: 8, command: 'blind'}, player2.bet.getCall(0).args[0])
+        assert.equal(0, p._waiting)
+
+      it '3 blinds (3 players)', ->
+        p._blinds = [2, 4, 8]
+        p.round()
+        assert.equal 2, player2.bet.getCall(0).args[0].bet
+        assert.equal 4, player3.bet.getCall(0).args[0].bet
+        assert.equal 8, player1.bet.getCall(0).args[0].bet
+        assert.equal(0, p._waiting)
+
+      it '3 blinds (2 players)', ->
+        p._players = [player1, player2]
+        p._blinds = [2, 4, 8]
+        p.round()
+        assert.equal 8, player1.bet.getCall(0).args[0].bet
+        assert.equal 4, player2.bet.getCall(0).args[0].bet
+        assert.equal(0, p._waiting)
+
+      it 'antes', ->
+        p._ante = 1
+        p.round()
+        assert.deepEqual({bet: 1, command: 'ante'}, player1.bet.getCall(0).args[0])
+        assert.deepEqual({bet: 1, command: 'ante'}, player2.bet.getCall(0).args[0])
+        assert.deepEqual({bet: 1, command: 'ante'}, player3.bet.getCall(0).args[0])
+        assert.equal 1, p._progress_pot.callCount
+        assert.equal true, p._progress_pot.getCall(0).args[0]
+
+      it 'ante next', ->
+        p._ante = 1
+        p._ante_next = 2
+        p.round()
+        assert.equal 2, p._ante
+        assert.equal null, p._ante_next
 
       it 'bet_raise_blind', ->
         p.options.bet_raise_blind = 5
@@ -389,7 +441,6 @@ describe 'Poker', ->
         assert.equal(4, player1.bet.getCall(0).args[0].bet)
         assert.equal(2, player2.bet.getCall(0).args[0].bet)
         assert.equal(0, p._waiting)
-        assert.deepEqual([1, 0], p._blinds_position)
 
       it 'players', ->
         p._players = [player1, player2]
@@ -428,25 +479,38 @@ describe 'Poker', ->
       assert.equal(1, p._cards.deal.callCount)
       assert.equal(2, p._cards.deal.getCall(0).args[0])
 
+    it '_round_player_addon', ->
+      p._blinds = [1, 3]
+      p.options.cap_player = 3
+      assert.equal 9, p._round_player_addon().chips_cap
+
     it '_emit_round_params', ->
       p._players = [player1, player2, null]
       p.players = -> [player1, player2]
-      p._blinds_position = [0, 1]
+      p._board.options =
+        pot: 'pt'
       p._dealer = 0
+      p._blinds = 'bl'
+      p._ante = 'an'
       player1.options.command = 'c'
       player1.options.bet = 1
       player2.options.command = 'c2'
       player2.options.bet = 2
+      player2.options.chips_cap = 11
       params = p._emit_round_params()
-      assert.deepEqual({dealer: 0, blinds: [{position: 0, bet: 1, command: 'c'}, {position: 1, bet: 2, command: 'c2'}], players: [{cards: ['', '']}, {cards: ['', '']}, null] }, params[0])
-      assert.deepEqual({
-        1: {players: [ {cards: ['1', '11']}, {cards: ['', '']}, null ] }
-        2: {players: [ {cards: ['', '']}, {cards: ['2', '22']}, null ] }
-      }, params[1])
+      assert.deepEqual({dealer: 0, blinds: 'bl', ante: 'an', board: {pot: 'pt'}, players: [
+        {cards: ['', ''], chips: 20, bet: 1, command: 'c'}
+        {cards: ['', ''], chips: 15, bet: 2, chips_cap: 11, command: 'c2'}
+        null
+      ]}, params[0])
+      assert.equal 20, params[1][1].players[0].chips
+      assert.deepEqual ['1', '11'], params[1][1].players[0].cards
+      assert.deepEqual ['', ''], params[1][1].players[1].cards
+      assert.deepEqual ['', ''], params[1][2].players[0].cards
+      assert.deepEqual ['2', '22'], params[1][2].players[1].cards
 
     it '_emit_round_params (rake)', ->
       p._rake = 5
-      p._blinds_position = []
       params = p._emit_round_params()
       assert.equal(5, params[0].rake)
 
@@ -479,8 +543,9 @@ describe 'Poker', ->
       assert.equal(false, p._rake_calc())
 
     it 'blinds', ->
-      p.blinds([15, 30])
+      p.blinds([15, 30], 10)
       assert.deepEqual([15, 30], p._blinds_next)
+      assert.equal 10, p._ante_next
 
     it '_waiting_commands', ->
       p._progress_round = 5
@@ -615,15 +680,21 @@ describe 'Poker', ->
       p._progress_round = 'p'
       p._get_ask = -> [ {a: 'sk'}, {1: {s: 'k'}} ]
       p._players = [null, player1, null]
+      p._ante = 3
       json = p.toJSON(5)
       assert.deepEqual([null, 'pjson', null], json.players)
       assert.equal('d', json.dealer)
       assert.equal('p', json.progress)
       assert.deepEqual([1, 2], json.blinds)
+      assert.equal(3, json.ante)
       assert.equal(1, player1.toJSON.callCount)
       assert.equal(5, player1.toJSON.getCall(0).args[0])
       assert.deepEqual({a: 'sk'}, json.ask)
       assert.deepEqual({a: 'sk', s: 'k'}, p.toJSON(1).ask)
+
+    it 'toJSON (no ante)', ->
+      p._ante = null
+      assert.equal false, 'ante' in Object.keys(p.toJSON())
 
     it 'toJSON (no ask)', ->
       p._get_ask = -> null
@@ -947,6 +1018,10 @@ describe 'Poker', ->
       player2.bet_pot = sinon.fake.returns(0)
       p._progress_pot()
       assert.equal(1, pot.callCount)
+
+    it 'silent', ->
+      p._progress_pot(true)
+      assert.equal(true, pot.getCall(0).args[1])
 
 
   describe 'round end', ->

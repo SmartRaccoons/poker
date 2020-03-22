@@ -59,6 +59,7 @@ describe 'Player', ->
 
     it 'constructor', ->
       assert.equal 50, u.options.chips_start
+      assert.equal 50, u.options.chips_cap
 
     it '_remove_safe', ->
       u.on 'remove_safe', spy
@@ -89,33 +90,47 @@ describe 'Player', ->
       assert.equal true, u._remove_safe()
       assert.equal 1, spy.callCount
 
-    it 'round', ->
-      u.options.chips = 5
-      u.options.win = 2
-      u.options.rounds = 2
-      u.round({cards: 'c'})
-      assert.equal(1, up.callCount)
-      assert.equal(0, up.getCall(0).args[0].win)
-      assert.equal(7, up.getCall(0).args[0].chips_last)
-      assert.equal(7, up.getCall(0).args[0].chips)
-      assert.equal('c', up.getCall(0).args[0].cards)
-      assert.equal(3, up.getCall(0).args[0].rounds)
 
-    it 'round (default)', ->
-      u.options_default.winner = 0
-      u.options_default.talked = 'talk'
-      u.options_round_reset = ['winner', 'talked']
-      u.options.talked = 'to'
-      u.options.winner = 2
-      u.round('c')
-      assert.equal(0, up.getCall(0).args[0].winner)
-      assert.equal('talk', up.getCall(0).args[0].talked)
+    describe 'round', ->
+      beforeEach ->
+        u.options.chips = 5
+        u.options.win = 2
+        u.options.rounds = 2
 
-    it 'round (out)', ->
-      u.options.out = true
-      u.options.rounds_out = 2
-      u.round('c')
-      assert.equal(3, up.getCall(0).args[0].rounds_out)
+      it 'default', ->
+        u.round({cards: 'c'})
+        assert.equal(1, up.callCount)
+        assert.equal(0, up.getCall(0).args[0].win)
+        assert.equal(7, up.getCall(0).args[0].chips_last)
+        assert.equal(7, up.getCall(0).args[0].chips)
+        assert.equal(7, up.getCall(0).args[0].chips_cap)
+        assert.equal('c', up.getCall(0).args[0].cards)
+        assert.equal(3, up.getCall(0).args[0].rounds)
+
+      it 'chips_cap', ->
+        u.round({cards: 'c', chips_cap: 6})
+        assert.equal(6, up.getCall(0).args[0].chips_cap)
+
+      it 'chips_cap to big', ->
+        u.round({cards: 'c', chips_cap: 16})
+        assert.equal(7, up.getCall(0).args[0].chips_cap)
+
+      it 'default_options', ->
+        u.options_default.winner = 0
+        u.options_default.talked = 'talk'
+        u.options_round_reset = ['winner', 'talked']
+        u.options.talked = 'to'
+        u.options.winner = 2
+        u.round('c')
+        assert.equal(0, up.getCall(0).args[0].winner)
+        assert.equal('talk', up.getCall(0).args[0].talked)
+
+      it 'out', ->
+        u.options.rounds_out = 2
+        u.options.out = true
+        u.round('c')
+        assert.equal(3, up.getCall(0).args[0].rounds_out)
+
 
     it 'rank', ->
       u.options.rank = 'r'
@@ -151,32 +166,39 @@ describe 'Player', ->
       u.options.id = 5
       assert.equal(5, u.id())
 
-    it 'bet', ->
-      u.options.chips = 10
-      u.options.bet = 2
-      assert.equal(5, u.bet({bet: 5, command: 'bet'}))
-      assert.equal(1, up.callCount)
-      assert.deepEqual({chips: 5, bet: 7, command: 'bet', talked: true}, up.getCall(0).args[0])
 
-    it 'bet (blind)', ->
-      u.options.chips = 10
-      u.options.bet = 2
-      u.bet({bet: 5, command: 'blind'})
-      assert.deepEqual({chips: 5, bet: 7, command: 'blind'}, up.getCall(0).args[0])
+    describe 'bet', ->
+      beforeEach ->
+        u.options.chips = 20
+        u.options.chips_cap = 10
+        u.options.bet = 2
 
-    it 'bet (all_in)', ->
-      u.options.chips = 10
-      u.options.bet = 2
-      assert.equal(10, u.bet({bet: 15, command: 'blind'}))
-      assert.deepEqual({chips: 0, bet: 12, command: 'all_in'}, up.getCall(0).args[0])
+      it 'default', ->
+        assert.equal(5, u.bet({bet: 5, command: 'bet'}))
+        assert.equal(1, up.callCount)
+        assert.deepEqual({chips_cap: 5, chips: 15, bet: 7, command: 'bet', talked: true}, up.getCall(0).args[0])
+
+      it 'blind', ->
+        u.bet({bet: 5, command: 'blind'})
+        assert.deepEqual({chips_cap: 5, chips: 15, bet: 7, command: 'blind'}, up.getCall(0).args[0])
+
+      it 'ante', ->
+        u.bet({bet: 1, command: 'ante'})
+        assert.equal false, 'talked' in Object.keys(up.getCall(0).args[0])
+
+      it 'all_in', ->
+        assert.equal(10, u.bet({bet: 15, command: 'blind'}))
+        assert.deepEqual({chips_cap: 0, chips: 10, bet: 12, command: 'all_in'}, up.getCall(0).args[0])
+
 
     it 'bet_return', ->
+      u.options.chips_cap = 10
       u.options.chips = 20
       u.options.bet = 10
       u.on 'bet_return', spy
       u.bet_return({bet: 5})
       assert.equal(1, up.callCount)
-      assert.deepEqual({chips: 25, bet: 5}, up.getCall(0).args[0])
+      assert.deepEqual({chips: 25, chips_cap: 15, bet: 5}, up.getCall(0).args[0])
       assert.equal(1, spy.callCount)
       assert.deepEqual({bet: 5}, spy.getCall(0).args[0])
 
@@ -261,14 +283,20 @@ describe 'Player', ->
     it 'toJSON', ->
       u.options.cards = [1, 2]
       u.options.bet = 10
+      u.options.chips_cap = 30
       assert.equal(10, u.toJSON().bet)
       assert.ok(Object.keys(u.toJSON()).indexOf('cards_board') is -1)
       assert.equal(2, u.toJSON().id)
       assert.equal(2, u.toJSON().position)
       assert.equal(50, u.toJSON().chips)
+      assert.equal(30, u.toJSON().chips_cap)
       assert.equal(false, u.toJSON().out)
       assert.equal(false, u.toJSON().last)
       assert.deepEqual(['', ''], u.toJSON().cards)
+
+    it 'toJSON (chips_cap same)', ->
+      u.options.chips_cap = 50
+      assert.equal false, 'chips_cap' in Object.keys(u.toJSON())
 
     it 'toJSON (showdown)', ->
       u.options.cards = [1, 2]
@@ -335,7 +363,6 @@ describe 'Player', ->
 
 
   describe 'commands', ->
-
     it 'bet (same)', ->
       u.options.bet = 10
       assert.deepEqual(['check'], u.commands({bet_max: 10})[0])
@@ -348,13 +375,13 @@ describe 'Player', ->
 
     it 'bet (big)', ->
       u.options.bet = 15
-      u.options.chips = 30
+      u.options.chips_cap = 30
       assert.deepEqual(['fold'], u.commands({bet_max: 20})[0])
       assert.deepEqual(['call', 5], u.commands({bet_max: 20})[1])
       assert.deepEqual(['raise', 30], u.commands({bet_max: 20, bet_raise: 25})[2])
 
     it 'bet (chips not enough)', ->
-      u.options.chips = 5
+      u.options.chips_cap = 5
       u.options.bet = 45
       commands = u.commands({bet_max: 70})
       assert.deepEqual(['call', 5], commands[1])
@@ -378,7 +405,7 @@ describe 'Player', ->
 
     it 'bet (cap more then chips)', ->
       u.options.bet = 10
-      u.options.chips = 15
+      u.options.chips_cap = 15
       assert.deepEqual(['check'], u.commands({bet_max: 10})[0])
       assert.deepEqual(['raise', 15], u.commands({bet_max: 10, cap: 20, bet_raise: 20})[1])
 
