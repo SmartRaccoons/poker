@@ -200,9 +200,22 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
 
   toJSON: (user_id, not_fantasyland)->
     hero = user_id is @options.id
+    ask = @_get_ask(not_fantasyland)
     Object.assign(
       _pick @options, ['id', 'position', 'chips', 'chips_change', 'out', 'timebank', 'fantasyland', 'hand', 'fold']
       if hero then {hero}
-      if !hero then { fold: @options.fold.map ()-> null }
-      if !hero and not_fantasyland and not_fantasyland.length > 0 and !( user_id in not_fantasyland ) then { hand: @options.hand.map (line)-> line.map -> null }
+      if !hero then {
+        fold: @options.fold.map ()-> null
+      }
+      if !hero and not_fantasyland and not_fantasyland.length > 0 and !( user_id in not_fantasyland ) then {
+        hand: @options.hand.map (line)->
+          line.map -> null
+      }
+      if ask then {
+        ask: Object.assign(
+          {}
+          ask[0]
+          if user_id then ask[1][user_id]
+        )
+      }
     )
