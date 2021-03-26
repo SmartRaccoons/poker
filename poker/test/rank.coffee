@@ -80,6 +80,22 @@ describe 'Rank', ->
       assert.equal(1, spy2.callCount)
       assert.equal(0, spy3.callCount)
 
+    it 'go over combinations (ignore)', ->
+      spy = sinon.spy()
+      spy2 = sinon.spy()
+      class Rank2 extends Rank
+        royal_flush: ->
+          spy()
+          return [0, 3]
+        straight_flush: ->
+          spy2()
+          @_matched = [ ['A', 'c'] ]
+          return [0, 1]
+      r = new Rank2(['Ac'], [0])
+      assert.deepEqual([1, 0, 1], r._hand_rank)
+      assert.equal(0, spy.callCount)
+      assert.equal(1, spy2.callCount)
+
 
   describe 'compare', ->
     it '_compare_hands', ->

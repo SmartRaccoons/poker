@@ -17,7 +17,7 @@ module.exports.PokerRank = class PokerRank
 
   _combinations_examples: combinations_examples
   _combinations: combinations_examples.map (v)-> v[0]
-  constructor: (hand)->
+  constructor: (hand, combinations_ignore = [])->
     @_hand = hand
     .map (card)=> [card.substr(0, 1), card.substr(1, 1)]
     .sort (a, b)=> @_deck_ranks.indexOf(a[0]) - @_deck_ranks.indexOf(b[0])
@@ -27,6 +27,8 @@ module.exports.PokerRank = class PokerRank
       if suited.length >= 5
         @_flush = suited
     for combination, i in @_combinations
+      if i in combinations_ignore
+        continue
       hand_rank = @[combination]()
       if hand_rank
         @_hand_rank = [i].concat(hand_rank)

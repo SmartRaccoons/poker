@@ -23,8 +23,8 @@ class PokerOFCRank
 PokerPineappleOFC =  proxyquire('../poker', {
   './player':
     PokerPineappleOFCPlayer: Player
-  '../poker/cards':
-    Cards: Cards
+  './cards':
+    CardsId: Cards
   './rank':
     PokerOFCRank: PokerOFCRank
 }).PokerPineappleOFC
@@ -77,10 +77,11 @@ describe 'PokerPineappleOFC', ->
       assert.equal true, PokerPineappleOFC::options_default.autostart
       assert.equal 2000, PokerPineappleOFC::options_default.delay_round
       assert.equal 200, PokerPineappleOFC::options_default.delay_player_turn
-      assert.equal 0, PokerPineappleOFC::options_default.rounds_out_max
+      assert.equal 0, PokerPineappleOFC::options_default.turns_out_max
 
       assert.equal 0, PokerPineappleOFC::options_default.dealer
       assert.equal false, PokerPineappleOFC::options_default.running
+      assert.equal false, PokerPineappleOFC::options_default.fantasyland
 
     it 'constructor', ->
       assert.deepEqual [null, null, null], o._players
@@ -284,62 +285,64 @@ describe 'PokerPineappleOFC', ->
         assert.equal 1, o._players_not_fantasyland.callCount
 
 
+    describe 'turn_temp', ->
+      player = null
+      turn_emit = null
+      beforeEach ->
+        turn_emit = sinon.spy()
+        o.player_add {id: 5}
+        player = o._players[0]
+        o.on 'turn_temp', turn_emit
+        player.options.fantasyland = false
+
+      it 'default', ->
+        player.emit 'turn_temp', 'trn'
+        assert.equal 1, turn_emit.callCount
+        assert.equal 'trn', turn_emit.getCall(0).args[0]
+
+      it 'fantasyland', ->
+        player.options.fantasyland = true
+        player.emit 'turn_temp', 'trn'
+        assert.equal 0, turn_emit.callCount
+
+
     describe 'turn', ->
       player = null
-      turn = null
       turn_emit = null
       beforeEach ->
         turn_emit = sinon.spy()
         o._progress_check = sinon.spy()
         o._progress = sinon.spy()
-        o.player_add({id: 5})
+        o.player_add {id: 5}
         o.players = sinon.fake.returns [{options: {hand: 'h1', position: 1}}, {options: {hand: 'h2', position: 2}}]
         player = o._players[0]
-        turn = {cards: [ [1, 2], [], [4], ], fold: [3]}
+        player._get_turn = sinon.fake.returns ['1', '2']
         o.on 'turn', turn_emit
-        o._players_not_fantasyland = sinon.fake.returns []
+        o._players_not_fantasyland = sinon.fake.returns 'pl_no_f'
         player.options.fantasyland = false
+        player.options.position = 5
 
       it 'default', ->
-        player.emit 'turn', {turn}
+        player.emit 'turn', 'trn'
         assert.equal 0, o._progress_check.callCount
         assert.equal 1, o._progress.callCount
+        assert.equal 5, o._progress.getCall(0).args[0]
         assert.equal 1, turn_emit.callCount
-        assert.deepEqual {position: 0, turn: {cards: [ [1, 2], [], [4] ], fold: [null]}}, turn_emit.getCall(0).args[0]
-        assert.deepEqual {5: {turn: {cards: [ [1, 2], [], [4] ], fold: [3]}} }, turn_emit.getCall(0).args[1]
-
-      it 'some in fantasyland', ->
-        o._players_not_fantasyland = sinon.fake.returns [5, 6]
-        player.emit 'turn', {turn}
-        assert.deepEqual {position: 0, turn: {cards:  [ [null, null], [], [null] ], fold: [null]}}, turn_emit.getCall(0).args[0]
-        assert.deepEqual {
-          5: {turn: {cards: [[1, 2], [], [4]], fold: [3]}}
-          6: {turn: {cards: [[1, 2], [], [4]], fold: [null]}}
-        }, turn_emit.getCall(0).args[1]
-
-      it 'fantasyland', ->
-        player.options.fantasyland = true
-        player.emit 'turn', {turn}
-        assert.equal 1, o._progress_check.callCount
-        assert.equal 0, o._progress.callCount
-        assert.deepEqual {position: 0, players: [{hand: 'h1', position: 1}, {hand: 'h2', position: 2}], turn: {cards:  [ [null, null], [], [null] ], fold: [null]}}, turn_emit.getCall(0).args[0]
-        assert.deepEqual {
-          5: {turn: {cards: [[1, 2], [], [4]], fold: [3]}}
-        }, turn_emit.getCall(0).args[1]
+        assert.equal '1', turn_emit.getCall(0).args[0]
+        assert.equal '2', turn_emit.getCall(0).args[1]
+        assert.equal 1, player._get_turn.callCount
+        assert.equal 'trn', player._get_turn.getCall(0).args[0]
+        assert.equal 'pl_no_f', player._get_turn.getCall(0).args[1]
+        assert.deepEqual [{hand: 'h1', position: 1}, {hand: 'h2', position: 2}], player._get_turn.getCall(0).args[2]
+        assert.equal 1, o._players_not_fantasyland.callCount
         assert.equal 1, o.players.callCount
         assert.deepEqual {playing: true, fantasyland: false}, o.players.getCall(0).args[0]
 
-      it 'fantasyland (some in)', ->
-        o._players_not_fantasyland = sinon.fake.returns [5, 6]
+      it 'fantasyland', ->
         player.options.fantasyland = true
-        player.emit 'turn', {turn}
-        assert.deepEqual {position: 0, turn: {cards:  [ [null, null], [], [null] ], fold: [null]}}, turn_emit.getCall(0).args[0]
-        assert.deepEqual {
-          5: {
-            turn: {cards: [[1, 2], [], [4]], fold: [3]}
-            players: [{hand: 'h1', position: 1}, {hand: 'h2', position: 2}]
-          }
-        }, turn_emit.getCall(0).args[1]
+        player.emit 'turn', 'trn'
+        assert.equal 1, o._progress_check.callCount
+        assert.equal 0, o._progress.callCount
 
 
   describe '_player_remove', ->
@@ -367,6 +370,7 @@ describe 'PokerPineappleOFC', ->
   describe '_round_prepare', ->
     beforeEach ->
       o.options.delay_round_prepare = 2
+      o.options.fantasyland = true
       o._round = sinon.spy()
       o.on 'round_prepare', spy
       o._round_prepare_timeout = null
@@ -375,18 +379,21 @@ describe 'PokerPineappleOFC', ->
       o._round_prepare()
       assert.equal 0, o._round.callCount
       assert.equal 1, spy.callCount
-      assert.deepEqual {delay: 2}, spy.getCall(0).args[0]
+      assert.deepEqual {delay: 2, fantasyland: true}, spy.getCall(0).args[0]
       assert.equal true, !!o._round_prepare_timeout
       clock.tick 2100
       assert.equal null, o._round_prepare_timeout
       assert.equal 1, o._round.callCount
 
     it '_round_prepare_cancel', ->
+      spy_cancel = sinon.spy()
+      o.on 'round_cancel', spy_cancel
       o._round_prepare()
       o._round_prepare_cancel()
       assert.equal null, o._round_prepare_timeout
       clock.tick 2100
       assert.equal 0, o._round.callCount
+      assert.equal 1, spy_cancel.callCount
 
     it 'no delay', ->
       o.options.delay_round_prepare = 0
@@ -419,7 +426,7 @@ describe 'PokerPineappleOFC', ->
     it 'default', ->
       o._round()
       assert.equal 1, up.callCount
-      assert.deepEqual {dealer: 2, playing: true}, up.getCall(0).args[0]
+      assert.deepEqual {dealer: 2, running: true}, up.getCall(0).args[0]
       assert.equal 1, o._player_position_next.callCount
       assert.equal 0, o._player_position_next.getCall(0).args[0]
       assert.equal 1, player1.round.callCount
@@ -431,10 +438,17 @@ describe 'PokerPineappleOFC', ->
       assert.deepEqual {playing: true}, o.players.getCall(1).args[0]
       assert.deepEqual {playing: true}, o.players.getCall(2).args[0]
       assert.equal 1, spy.callCount
-      assert.deepEqual {dealer: 0, players: [{timebank: 10, position: 0}, {timebank: 15, position: 1}]}, spy.getCall(0).args[0]
+      assert.deepEqual {dealer: 2, players: [{timebank: 10, position: 0}, {timebank: 15, position: 1}]}, spy.getCall(0).args[0]
       assert.equal 1, o._progress.callCount
-      assert.equal 0, o._progress.getCall(0).args[0]
+      assert.equal 2, o._progress.getCall(0).args[0]
       assert.equal 1, o._cards.shuffle.callCount
+
+    it 'fantasyland', ->
+      o.options.fantasyland = true
+      o._round()
+      assert.deepEqual {playing: true}, o.players.getCall(0).args[0]
+      assert.equal 0, up.callCount
+      assert.equal 0, o._player_position_next.callCount
 
     it 'cards_require', ->
       o._round()
@@ -527,12 +541,13 @@ describe 'PokerPineappleOFC', ->
       o._players_id = {1: 2}
       o._players = [null, null, player1]
       player1.options.waiting = true
-      player1.turn = sinon.spy()
       player1.out = sinon.spy()
       o._player_remove = sinon.spy()
 
+
     describe 'turn', ->
       beforeEach ->
+        player1.turn = sinon.spy()
         player1.options.waiting = true
 
       it 'default', ->
@@ -545,22 +560,41 @@ describe 'PokerPineappleOFC', ->
         o.turn {user_id: 1, turn: {c: 'a'}}
         assert.equal 0, player1.turn.callCount
 
+
+    describe 'turn_temp', ->
+      beforeEach ->
+        player1.turn_temp = sinon.spy()
+        player1.options.waiting = true
+
+      it 'default', ->
+        o.turn_temp {user_id: 1, turn: {c: 'a'}}
+        assert.equal 1, player1.turn_temp.callCount
+        assert.deepEqual {c: 'a'}, player1.turn_temp.getCall(0).args[0]
+
+      it 'not waiting', ->
+        player1.options.waiting = false
+        o.turn_temp {user_id: 1, turn: {c: 'a'}}
+        assert.equal 0, player1.turn_temp.callCount
+
+
     it 'out', ->
       o.out {user_id: 1, out: true}
       assert.equal 1, player1.out.callCount
       assert.deepEqual {out: true}, player1.out.getCall(0).args[0]
 
+
     describe 'last', ->
       beforeEach ->
-        o.options.running = false
+        o.options.running = true
+        player1.options.playing = false
 
       it 'default', ->
         o.last {user_id: 1}
         assert.equal 1, o._player_remove.callCount
         assert.deepEqual player1, o._player_remove.getCall(0).args[0]
 
-      it 'running', ->
-        o.options.running = true
+      it 'running and playing', ->
+        player1.options.playing = true
         o.last {user_id: 1}
         assert.equal 0, o._player_remove.callCount
 
@@ -609,6 +643,7 @@ describe 'PokerPineappleOFC', ->
 
   describe '_round_end', ->
     players = null
+    players_return = null
     beforeEach ->
       o._players = [player1, null, player2]
       o.on 'round_end', spy
@@ -630,7 +665,7 @@ describe 'PokerPineappleOFC', ->
       ]
       o._calculate_pot = sinon.fake -> { rake: 2, players }
       o._player_remove = sinon.spy()
-      player2.options.rounds_out = 2
+      player2.options.turns_out = 2
       o._round_prepare = sinon.spy()
 
     it 'default', ->
@@ -643,7 +678,7 @@ describe 'PokerPineappleOFC', ->
       players_copy[1].fantasyland = false
       players_copy[1].hand = 'h2'
       players_copy[1].chips = 20
-      assert.deepEqual {players: players_copy, rake: 2}, spy.getCall(0).args[0]
+      assert.deepEqual {players: players_copy, rake: 2, fantasyland: true}, spy.getCall(0).args[0]
       assert.equal 1, o.players.callCount
       assert.deepEqual {playing: true}, o.players.getCall(0).args[0]
       assert.equal 1, PokerOFCRank_compare.callCount
@@ -664,7 +699,7 @@ describe 'PokerPineappleOFC', ->
       assert.equal 1, o._player_remove.callCount
       assert.equal 1, o._player_remove.getCall(0).args[0].options.id
       assert.equal 1, up.callCount
-      assert.deepEqual {running: false}, up.getCall(0).args[0]
+      assert.deepEqual {fantasyland: true}, up.getCall(0).args[0]
       assert.equal 1, o.players.callCount
       assert.equal 1, o._round_prepare.callCount
 
@@ -691,10 +726,20 @@ describe 'PokerPineappleOFC', ->
       o._round_end()
       assert.equal false, player1.round_end.getCall(0).args[1]
 
-    it 'user sitout_max', ->
-      o.options.rounds_out_max = 2
+    it 'user turns_out (no fantasyland)', ->
+      player1.options.fantasyland = false
+      o.options.turns_out_max = 2
       o._round_end()
-      assert.equal false, player1.round_end.getCall(0).args[1]
+      assert.equal false, 'fantasyland' of spy.getCall(0).args[0]
+      clock.tick 3000
+      assert.equal 1, o._player_remove.callCount
+      assert.deepEqual {running: false, fantasyland: false}, up.getCall(0).args[0]
+
+    it 'user turns_out', ->
+      o.options.turns_out_max = 2
+      o._round_end()
+      clock.tick 3000
+      assert.equal 0, o._player_remove.callCount
 
     it 'event', ->
       o._round_end()
@@ -733,13 +778,15 @@ describe 'PokerPineappleOFC', ->
     beforeEach ->
       o.options.bet = 5
       o.options.dealer = 2
+      o.options.running = true
+      o.options.fantasyland = true
       o._players_not_fantasyland = sinon.fake.returns 'nf'
       player1.toJSON = sinon.fake.returns 'pj1'
       player2.toJSON = sinon.fake.returns 'pj2'
       o._players = [player1, null, player2]
 
     it 'default', ->
-      assert.deepEqual {bet: 5, dealer: 2, players: ['pj1', null, 'pj2']}, o.toJSON('us')
+      assert.deepEqual {bet: 5, dealer: 2, running: true, fantasyland: true, players: ['pj1', null, 'pj2']}, o.toJSON('us')
       assert.equal 1, o._players_not_fantasyland.callCount
       assert.equal 1, player1.toJSON.callCount
       assert.equal 'us', player1.toJSON.getCall(0).args[0]
