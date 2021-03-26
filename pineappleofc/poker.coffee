@@ -16,12 +16,6 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     timeout: 10
     timeout_first: 20
     timeout_fantasyland: 60
-    # timeout_card: null
-    # timeout_card_first: null
-    # timeout_card_fantasyland: null
-    # timeout_bid: null
-    # timeout_card_first: null
-    # timeout_bid_first: null
     delay_round: 2000
     delay_round_prepare: 10
     delay_player_turn: 200
@@ -257,11 +251,10 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     @_round_last = true
 
   toJSON: (user_id = null)->
-    # json = Object.assign _pick(@options, [ 'bet', 'dealer', 'running', 'type' ]), {
-    #   players: @_players.map (p)-> p and p.toJSON(user_id)
-    #   board: @_board.toJSON()
-    # }, do =>
-    #   ask = @_get_ask()
-    #   if !ask
-    #     return null
-    #   {ask: Object.assign {}, ask[0], ask[1][user_id]}
+    not_fantasyland = @_players_not_fantasyland()
+    Object.assign(
+      _pick @options, ['bet', 'dealer']
+      {
+        players: @_players.map (p)-> p and p.toJSON(user_id, not_fantasyland)
+      }
+    )

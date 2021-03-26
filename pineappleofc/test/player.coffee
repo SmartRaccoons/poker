@@ -547,6 +547,8 @@ describe 'PokerPineappleOFCPlayer', ->
         timebank: 12
         fantasyland: true
 
+      o._get_ask = sinon.fake.returns [{a: 'll', s: 'o'}, {5: {s: 'z', e: 'd'}}]
+
     it 'default', ->
       assert.deepEqual {
         id: 1
@@ -558,13 +560,26 @@ describe 'PokerPineappleOFCPlayer', ->
         out: true
         timebank: 12
         fantasyland: true
+        ask: {a: 'll', s: 'o'}
       }, o.toJSON(100, [101])
+      assert.equal 1, o._get_ask.callCount
+      assert.deepEqual [101], o._get_ask.getCall(0).args[0]
+
+    it 'get_ask missing', ->
+      o._get_ask = -> null
+      assert.equal false, 'ask' of o.toJSON(100, [101])
 
     it 'user_id match', ->
       json = o.toJSON(1, [101])
       assert.equal true, json.hero
       assert.deepEqual o.options.hand, json.hand
       assert.deepEqual o.options.fold, json.fold
+
+    it 'ask match', ->
+      assert.deepEqual {a: 'll', s: 'z', e: 'd'}, o.toJSON(5, [101]).ask
+
+    it 'user_id missing', ->
+      assert.deepEqual {a: 'll', s: 'o'}, o.toJSON(null, null).ask
 
     it 'not in fantasyland', ->
       json = o.toJSON(2, [2])

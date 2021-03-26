@@ -728,3 +728,22 @@ describe 'PokerPineappleOFC', ->
       o.start()
       assert.equal 0, o._round.callCount
       assert.equal 1, o._round_prepare.callCount
+
+  describe 'toJSON', ->
+    beforeEach ->
+      o.options.bet = 5
+      o.options.dealer = 2
+      o._players_not_fantasyland = sinon.fake.returns 'nf'
+      player1.toJSON = sinon.fake.returns 'pj1'
+      player2.toJSON = sinon.fake.returns 'pj2'
+      o._players = [player1, null, player2]
+
+    it 'default', ->
+      assert.deepEqual {bet: 5, dealer: 2, players: ['pj1', null, 'pj2']}, o.toJSON('us')
+      assert.equal 1, o._players_not_fantasyland.callCount
+      assert.equal 1, player1.toJSON.callCount
+      assert.equal 'us', player1.toJSON.getCall(0).args[0]
+      assert.equal 'nf', player1.toJSON.getCall(0).args[1]
+      assert.equal 1, player2.toJSON.callCount
+      assert.equal 'us', player2.toJSON.getCall(0).args[0]
+      assert.equal 'nf', player2.toJSON.getCall(0).args[1]
