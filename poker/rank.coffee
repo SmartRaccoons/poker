@@ -5,7 +5,7 @@ combinations_examples = [
   ['full_house', ['Qs', 'Qh', 'Qd', 'Jc', 'Jd'] ]
   ['flush', ['Ah', 'Jh', '9h', '6h', '3h']]
   ['straight', ['9c', '8s', '7h', '6d', '5c']]
-  ['three_of_kind', ['2h', '2d', '2c', '5s', 'Qc'], 3]
+  ['three_of_a_kind', ['2h', '2d', '2c', '5s', 'Qc'], 3]
   ['two_pair', ['Ac', 'Ah', 'Ks', 'Kd', '9s'], 4]
   ['one_pair', ['As', 'Ad', '8c', 'Ts', '2h'], 2]
   ['high_card', ['As', '5c', 'Ts', '9h', '2d'], 1]
@@ -134,7 +134,7 @@ module.exports.PokerRank = class PokerRank
     @_matched = matched
     rank
 
-  three_of_kind: ->
+  three_of_a_kind: ->
     for rank, i in @_deck_ranks
       [ranks_left, matched] = @_match(@_hand, rank, 3)
       if ranks_left

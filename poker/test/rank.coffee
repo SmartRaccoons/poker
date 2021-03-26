@@ -240,7 +240,7 @@ describe 'Rank', ->
       assert.ok !r._matched
 
 
-  describe 'three_of_kind', ->
+  describe 'three_of_a_kind', ->
     it 'success', ->
       r._hand = 'hand'
       a = 0
@@ -252,7 +252,7 @@ describe 'Rank', ->
       sinon.spy(r, '_match')
       r._kicker = -> [2, 3]
       sinon.spy(r, '_kicker')
-      assert.deepEqual([1, 2, 3], r.three_of_kind())
+      assert.deepEqual([1, 2, 3], r.three_of_a_kind())
       assert.equal(2, r._match.callCount)
       assert.equal('hand', r._match.getCall(0).args[0])
       assert.equal('A', r._match.getCall(0).args[1])
@@ -265,7 +265,7 @@ describe 'Rank', ->
 
     it 'fail', ->
       r._match = -> [false]
-      assert.equal(false, r.three_of_kind())
+      assert.equal(false, r.three_of_a_kind())
       assert.ok !r._matched
 
 
