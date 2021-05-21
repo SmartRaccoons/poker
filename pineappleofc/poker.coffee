@@ -3,7 +3,7 @@ _omit = require('lodash').omit
 _cloneDeep = require('lodash').cloneDeep
 
 Default = require('../poker/default').Default
-Cards = require('../poker/cards').Cards
+Cards = require('./cards').CardsId
 Rank = require('./rank').PokerOFCRank
 
 
@@ -21,10 +21,11 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     delay_player_turn: 200
     timebank_rounds: [] # [ [0, 10], [3, 5] ]
     autostart: true
-    rounds_out_max: 0 #0 - unlimited
+    turns_out_max: 0 #0 - unlimited
 
     dealer: 0
     running: false
+    fantasyland: false
 
   constructor: (options = {})->
     super _omit(options, ['players', 'users'])
@@ -35,7 +36,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
 
   _player_position_next: (position)->
     max = @_players.length
-    for i in [0...@_players.length]
+    for i in [0...max]
       position = if position + 1 is max then 0 else position + 1
       if @_players[position]
         return position
@@ -65,29 +66,16 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     ['out', 'timebank'].forEach (ev)=>
       player.on ev, (params)=>
         @emit "#{ev}", Object.assign({position}, params)
-    player.on 'ask', => @emit.apply(@, ['ask'].concat( player._get_ask(@_players_not_fantasyland()) ) )
-    player.on 'turn', ({turn})=>
-      not_fantasyland = @_players_not_fantasyland()
-      turn_fold = _cloneDeep(turn)
-      turn_fold.fold = turn_fold.fold.map -> null
-      turn_closed = _cloneDeep(turn_fold)
-      turn_closed.cards = turn_closed.cards.map (line)-> line.map -> null
+    player.on 'ask', =>
+      @emit.apply @, ['ask'].concat( player._get_ask(@_players_not_fantasyland()) )
+    player.on 'turn_temp', (turn)=>
+      if player.options.fantasyland
+        return
+      @emit 'turn_temp', turn
+    player.on 'turn', (turn)=>
       players = @players({playing: true, fantasyland: false}).map (p)-> _pick p.options, ['hand', 'position']
-      @emit 'turn', Object.assign(
-        {position}
-        { turn: if not_fantasyland.length > 0 or player.options.fantasyland then turn_closed else turn_fold }
-        if player.options.fantasyland and not_fantasyland.length is 0 then { players }
-      ), Object.assign(
-        {}
-        if not_fantasyland.length > 0 and !player.options.fantasyland then not_fantasyland.reduce( (acc, user_id)->
-          Object.assign acc, {[user_id]: {turn: turn_fold}}
-        )
-        { [player.options.id]: Object.assign(
-          { turn }
-          if player.options.fantasyland and not_fantasyland.length > 0 then {players}
-        )}
-      )
-      if player.options.fantasyland then @_progress_check() else @_progress()
+      @emit.apply @, ['turn'].concat( player._get_turn(turn, @_players_not_fantasyland(), players) )
+      if player.options.fantasyland then @_progress_check() else @_progress(player.options.position)
     @emit 'player:add', player.toJSON(), {[player.options.id]: player.toJSON(player.options.id)}
     if !@options.running and @options.autostart and !@_round_prepare_timeout and @players().length >= 2
       @start()
@@ -104,9 +92,10 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     @_players.filter (p)-> if filter then p and p.filter(filter) else p
 
   _players_not_fantasyland: ->
+    # if array empty - no users in the fantasyland with not finished hand
     players = @players({playing: true})
     not_fantasyland = players
-    .filter (p)-> !( p.options.fantasyland and !p.options.hand_full )
+    .filter (p)-> !p.options.fantasyland or p.options.hand_full
     .map (p)-> p.options.id
     if not_fantasyland.length is players.length
       return []
@@ -120,7 +109,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
   _round_prepare: ->
     if !@options.delay_round_prepare
       return @_round()
-    @emit 'round_prepare', {delay: @options.delay_round_prepare}
+    @emit 'round_prepare', {delay: @options.delay_round_prepare, fantasyland: @options.fantasyland}
     @_round_prepare_timeout = setTimeout =>
       @_round_prepare_timeout = null
       @_round()
@@ -129,13 +118,15 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
   _round_prepare_cancel: ->
     clearTimeout @_round_prepare_timeout
     @_round_prepare_timeout = null
+    @emit 'round_cancel'
 
   _round: ->
     @_cards.shuffle()
-    @options_update
-      dealer: @_player_position_next(@options.dealer)
-      playing: true
-    @players().forEach (p)=>
+    dealer = @options.dealer
+    if !@options.fantasyland
+      dealer = @_player_position_next(dealer)
+      @options_update {dealer, running: true}
+    @players( if @options.fantasyland then {playing: true} ).forEach (p)=>
       p.round Object.assign(
         {}
         do =>
@@ -148,14 +139,14 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
           if match then {timebank: match[1]} else null
       )
     @emit 'round', {
-      dealer: @options.dealer
+      dealer
       players: @players({playing: true}).map (p)-> _pick p.options, ['timebank', 'position']
     }
     @players({playing: true}).forEach (p)=>
       cards_require = p.cards_require(true)
       if cards_require > 0
         p.ask { cards: @_cards.deal(cards_require) }
-    @_progress(@options.dealer)
+    @_progress(dealer)
 
   _progress_check: ->
     if @players({playing: true}).length is @players({playing: true, hand_full: true}).length
@@ -178,6 +169,11 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     if !@_players[@_players_id[user_id]].options.waiting
       return
     @_players[@_players_id[user_id]].turn(turn)
+
+  turn_temp: ({user_id, turn})->
+    if !@_players[@_players_id[user_id]].options.waiting
+      return
+    @_players[@_players_id[user_id]].turn_temp turn
 
   _calculate_pot: (players)->
     bet = @options.bet
@@ -212,24 +208,26 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
 
   _round_end: ->
     {rake, players} = @_calculate_pot Rank::compare @players({playing: true}).map (p)-> _pick p.options, ['chips', 'rank', 'position']
-    players_remove = players
-    .filter (p)=>
-      (p.chips + p.chips_change) is 0 or ( @options.rounds_out_max and @options.rounds_out_max <= @_players[p.position].options.rounds_out )
-    .map (p)=>
-      @_players[p.position]
+    players_remove = players.filter (p)=> (p.chips + p.chips_change) <= 0
     players.forEach (p)=>
       @_players[p.position].round_end _pick(p, ['chips_change', 'points_change']), players.length - players_remove.length >= 2
+    fantasyland = !!( players.find (p)=> @_players[p.position].options.fantasyland )
+    if !fantasyland
+      players_remove = players.filter (p)=>
+        (p.chips + p.chips_change) is 0 or ( @options.turns_out_max and @options.turns_out_max <= @_players[p.position].options.turns_out )
+    players_remove = players_remove.map (p)=> @_players[p.position]
 
     @emit 'round_end', Object.assign(
       {
         players: players.map (p)=>
           Object.assign {}, p, _pick(@_players[p.position].options, ['fantasyland', 'hand', 'chips'])
       }
+      if fantasyland then {fantasyland}
       if rake then {rake}
     )
     setTimeout =>
       players_remove.forEach (p)=> @_player_remove(p)
-      @options_update {running: false}
+      @options_update Object.assign( {fantasyland}, if !fantasyland then { running: false } )
       if @_round_last
         @players().forEach (p)=>
           @_player_remove p
@@ -242,7 +240,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     @_players[@_players_id[user_id]].out({out})
 
   last: ({user_id})->
-    if @options.running
+    if @options.running and @_players[@_players_id[user_id]].options.playing
       return
     player = @_players[@_players_id[user_id]]
     @_player_remove player
@@ -253,7 +251,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
   toJSON: (user_id = null)->
     not_fantasyland = @_players_not_fantasyland()
     Object.assign(
-      _pick @options, ['bet', 'dealer']
+      _pick @options, [ 'bet', 'dealer', 'running', 'fantasyland' ]
       {
         players: @_players.map (p)-> p and p.toJSON(user_id, not_fantasyland)
       }

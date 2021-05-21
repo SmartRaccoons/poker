@@ -1,8 +1,11 @@
 _cloneDeep = require('lodash').cloneDeep
 _pick = require('lodash').pick
+_omit = require('lodash').omit
 
 Default = require('../poker/default').Default
 Rank = require('./rank').PokerOFCRank
+
+_omit_cards = (card)-> _omit(card, ['card'])
 
 module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends Default
   options_default:
@@ -12,13 +15,13 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     chips_start: 0
     chips_change: 0
     points_change: 0
-    hand: [[], [], []]
+    hand: []
     hand_full: false
     hand_length: 0
     fold: []
     out: false
     rounds: 0
-    rounds_out: 0
+    turns_out: 0
     fantasyland: false
     cards: []
     timebank: 0
@@ -33,11 +36,20 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
   options_bind:
     'hand': ->
       @options_update
-        rank: Rank::calculate(@options.hand, @options.fantasyland)
+        rank: Rank::calculate(
+          do =>
+            [0..2].map (line)=>
+              @options.hand
+                .filter ({l})-> l is line
+                .map ({card})-> card
+          , @options.fantasyland)
+    turns_out: ->
+      if @_turns_out_limit()
+        @options_update {out: true}
     out: ->
       @emit 'out', {out: @options.out}
-      if !@options.out and @options.rounds_out > 0
-        @options_update {rounds_out: 0}
+      if !@options.out
+        @options_update {turns_out: 0}
 
   options_round_reset: ['chips_change', 'points_change', 'hand', 'hand_full', 'hand_length', 'fold', 'cards', 'waiting']
 
@@ -51,71 +63,144 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     @options_update Object.assign(
       _cloneDeep _pick(@options_default, @options_round_reset)
       {playing: true, rounds: @options.rounds + 1}
-      if @options.out then {rounds_out: @options.rounds_out + 1}
       if timebank then {timebank: @options.timebank + timebank}
     )
 
-  _turn_cards_validate: (turn_cards)->
-    if !turn_cards or !Array.isArray(turn_cards) or \
-       turn_cards.length isnt 3 or turn_cards.find( (line)-> !Array.isArray(line) )
-      return null
-    fold = _cloneDeep @options.cards
-    fold_length = if fold.length is 5 then 0 else 1
-    hand = _cloneDeep @options.hand
-    for line_cards, line in turn_cards
-      for card in line_cards
-        if !(card in fold)
-          return null
-        fold.splice(fold.indexOf(card), 1)
-        hand[line].push card
-      if hand[line].length > (if line is 0 then 3 else 5)
-        return null
-    if fold.length isnt fold_length
-      return null
-    return {fold, hand}
+  _turn_automove_fantasyland: ->
+    cards_clone = _cloneDeep(@options.cards)
+    cards = []
+    {hand, fold} = Rank::automove_fantasyland(@options.cards.map (c)-> c.card)
+    hand.forEach (line, l)=>
+      line.forEach (c, r)=>
+        card_index = cards_clone.findIndex (card)-> card.card is c
+        card = cards_clone.splice(card_index, 1)[0]
+        cards.push {l, r, card: card.card, i: card.i}
+    { cards, fold: cards_clone.map (card)-> {card: card.card, i: card.i} }
 
-  _turn_cards_default: ->
-    fold = _cloneDeep @options.cards
-    fold_length = if fold.length is 5 then 0 else 1
-    cards = [[], [], []]
-    for line in [2, 1, 0]
-      slots = 5 - @options.hand[line].length
-      for slot in [0...slots]
-        cards[line].push fold.shift()
-        if fold_length is fold.length
-          return cards
+  _turn_cards_temp: (turn_cards)->
+    cards_length = @options.cards.length
+    place = cards_length - (if cards_length is 5 then 0 else 1)
+    slots_completed = [0..2].map (line)=> @options.hand.filter( ({l})-> l is line ).length
+    slots_free = slots_completed.map (placed, i)-> (if i is 0 then 3 else 5) - placed
+    cards_clone = _cloneDeep @options.cards
+    cards = []
+    if !( turn_cards and Array.isArray(turn_cards) )
+      turn_cards = _cloneDeep(@options.cards)
+    for ___ in [0..50]
+      if turn_cards.length is 0
+        break
+      turn_card = turn_cards.shift()
+      if !turn_card.i?
+        continue
+      card_index = cards_clone.findIndex ({i})-> i is turn_card.i
+      if card_index < 0
+        continue
+      card = Object.assign(
+        {}
+        cards_clone.splice(card_index, 1)[0]
+        { l: if turn_card.l? and turn_card.l in [0, 1, 2] and slots_free[turn_card.l] > 0 and place > 0 then turn_card.l else 3 }
+        if (turn_card.r? and turn_card.r in [0..13]) then {r: turn_card.r}
+      )
+      cards.push card
+      if card.l < 3
+        slots_free[card.l]--
+        place--
+    {
+      slots_completed, slots_free, place,
+      cards: cards.concat cards_clone.map (card)-> Object.assign {}, card, {l: 3}
+    }
+
+  _turn_cards_check: (turn_cards)->
+    {slots_completed, slots_free, place, cards} = @_turn_cards_temp turn_cards
+    for ___ in [0...place]
+      card = cards.find (c)-> c.l is 3
+      card.l = slots_free.findIndex (free)-> free > 0
+      delete card.r
+      slots_free[card.l]--
+    cards
+    .sort (c1, c2)->
+      (if !c1.r? then 15 else c1.r) - (if !c2.r? then 15 else c2.r)
+    .forEach (card)->
+      if card.l < 3
+        card.r = slots_completed[card.l]
+        slots_completed[card.l]++
+    {
+      automove: place > 0
+      cards: cards.filter (c)-> c.l < 3
+      fold: cards.filter (c)-> c.l is 3
+    }
 
   _turn_cards: ({cards})->
-    params = @_turn_cards_validate cards
-    if !params
-      @options_update {out: true}
-      cards = @_turn_cards_default()
-      params = @_turn_cards_validate cards
+    {cards, fold, automove} = @_turn_cards_check cards
+    if automove and @options.cards.length > 5
+      {cards, fold} = @_turn_automove_fantasyland()
     hand_length = @options.hand_length + cards.length
+    fold = fold.map (card)->
+      _omit card, ['l', 'r']
     @options_update Object.assign(
-      {hand: params.hand, hand_length, cards: []}
+      {hand: @options.hand.concat(cards), hand_length, cards: []}
       if hand_length is 13 then {hand_full: true}
-      if params.fold.length > 0 then {fold: @options.fold.concat(params.fold)}
+      if fold.length > 0 then { fold: @options.fold.concat( fold ) }
     )
-    return {cards, fold: params.fold}
+    return {cards, fold}
 
-  turn: ({cards})->
+  turn_temp: (params)->
+    {cards} = @_turn_cards_temp if params then params.cards
+    @options_update {cards, turns_out: 0}
+    @emit 'turn_temp', {
+      position: @options.position
+      turn:
+        cards: cards.map (card)-> _pick(card, ['i', 'l', 'r'])
+    }
+
+  turn: (params)->
     if @options.waiting
       @_activity_clear()
       @options_update {waiting: false}
-    turn = @_turn_cards {cards}
-    exe = => @emit 'turn', {turn}
+    @options_update
+      turns_out: if !params then @options.turns_out + 1 else 0
+    turn = @_turn_cards {cards: if params then params.cards}
+    exe = => @emit 'turn', turn
     delay = @options.delay_player_turn + @_ask_date.getTime() - new Date().getTime()
     if delay <= 0
       return exe()
     setTimeout exe, delay
 
+  _get_turn: (turn, not_fantasyland = [], players = [])->
+    turn_fold = _cloneDeep(turn)
+    turn_fold.fold.forEach (card)-> delete card.card
+    turn_closed = _cloneDeep(turn_fold)
+    turn_closed.cards.forEach (card)-> delete card.card
+    [
+      Object.assign(
+        { position: @options.position }
+        { turn: if not_fantasyland.length > 0 or @options.fantasyland then turn_closed else turn_fold}
+        if not_fantasyland.length is 0 and @options.fantasyland then { players }
+      )
+      Object.assign(
+        { [@options.id]: Object.assign(
+            {}
+            { turn }
+            if @options.fantasyland and not_fantasyland.length > 0 then {players}
+          )
+        }
+        if !@options.fantasyland then not_fantasyland.reduce (acc, user_id)->
+          Object.assign acc, {[user_id]: {turn: turn_fold}}
+        , {}
+      )
+    ]
+
+  _turns_out_limit: -> @options.turns_out >= 3
+
   ask: ({cards})->
     @_ask_date = new Date()
-    waiting = !( @options.out and !@options.fantasyland )
-    @options_update Object.assign( {cards}, if waiting then {waiting} )
+    waiting = !@_turns_out_limit() or @options.fantasyland
+    @options_update Object.assign(
+      {cards: cards.map (card, r)-> Object.assign({}, card, {r, l: 3}) }
+      if waiting then {waiting}
+    )
     if !waiting
-      return @turn {}
+      return @turn()
     @_activity if @options.fantasyland then @options.timeout_fantasyland else\
       if @options.hand_length is 0 then @options.timeout_first else @options.timeout
     @emit 'ask'
@@ -129,11 +214,11 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
         turn:
           cards: do =>
             if hide
-              return @options.cards.map -> null
+              return @options.cards.map _omit_cards
             return @options.cards
             if @options.cards.length is 5 and not_fantasyland.length is 0
               return @options.cards
-            @options.cards.map -> null
+            @options.cards.map _omit_cards
         timeout: @_activity_timeout_left()
         timebank: @options.timebank
         timebank_active: !!@_activity_timebank
@@ -160,8 +245,8 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     return @options.playing and !@options.fantasyland and !@options.hand_full
 
   action_fantasyland: ->
-    if @options.waiting and @options.rounds_out > 0
-      @turn {}
+    if @options.waiting and @_turns_out_limit()
+      @turn()
 
   round_end: ({chips_change, points_change}, players_enough)->
     @options_update {
@@ -187,8 +272,8 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     @_activity_timeout = timeout * 1000
     @_activity_timeout_start = new Date().getTime()
     @_activity_callback = setTimeout =>
-      if @options.out or @_activity_timebank or !(@options.timebank > 0)
-        return @turn({})
+      if @_turns_out_limit() or @_activity_timebank or !(@options.timebank > 0)
+        return @turn()
       @emit 'timebank', {timeout: @options.timebank}
       @_activity_timebank = true
       @_activity @options.timebank
@@ -198,18 +283,20 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     seconds = Math.round ( @_activity_timeout - (new Date().getTime() - @_activity_timeout_start) ) / 1000
     if seconds > 0 then seconds else 0
 
+  out: ({out})->
+    @options_update {out: !!out}
+
   toJSON: (user_id, not_fantasyland)->
     hero = user_id is @options.id
     ask = @_get_ask(not_fantasyland)
     Object.assign(
-      _pick @options, ['id', 'position', 'chips', 'chips_change', 'out', 'timebank', 'fantasyland', 'hand', 'fold']
+      _pick @options, ['id', 'position', 'chips', 'out', 'timebank', 'fantasyland', 'playing', 'hand', 'fold']
       if hero then {hero}
       if !hero then {
-        fold: @options.fold.map ()-> null
+        fold: @options.fold.map _omit_cards
       }
       if !hero and not_fantasyland and not_fantasyland.length > 0 and !( user_id in not_fantasyland ) then {
-        hand: @options.hand.map (line)->
-          line.map -> null
+        hand: @options.hand.map _omit_cards
       }
       if ask then {
         ask: Object.assign(

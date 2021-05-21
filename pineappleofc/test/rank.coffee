@@ -30,6 +30,21 @@ describe 'PokerOFCRank', ->
     spy = sinon.spy()
 
 
+  it 'automove_fantasyland', ->
+    i = 0
+    PokerRank_constructor = sinon.fake (cards)->
+      i++
+      @_hand_matched = if i is 3 then cards.slice(0) else [ cards[cards.length - 1] ]
+    hand = ['c5', 'c6', 'c1', 'c2', 'c3', 'c4']
+    assert.deepEqual { fold: ['c2'], hand: [ ['c5', 'c6', 'c1'], ['c3'], ['c4'] ] }, PokerOFCRank::automove_fantasyland( hand.slice(0) )
+    assert.equal 3, PokerRank_constructor.callCount
+    assert.deepEqual hand.slice(0), PokerRank_constructor.getCall(0).args[0]
+    assert.deepEqual [], PokerRank_constructor.getCall(0).args[1]
+    assert.deepEqual ['c5', 'c6', 'c1', 'c2', 'c3' ], PokerRank_constructor.getCall(1).args[0]
+    assert.deepEqual ['c5', 'c6', 'c1', 'c2' ], PokerRank_constructor.getCall(2).args[0]
+    assert.deepEqual [7], PokerRank_constructor.getCall(2).args[1]
+
+
   describe 'calculate', ->
     fn = null
     hand = null
@@ -194,6 +209,7 @@ describe 'PokerOFCRank', ->
     fn = null
     hands = null
     ranks = null
+    royalties = null
     beforeEach ->
       fn = PokerOFCRank::compare
       ranks = [
@@ -203,29 +219,48 @@ describe 'PokerOFCRank', ->
       ]
       PokerRank__compare_hands = sinon.fake -> ranks.shift()
       hands = [
-        {lines: [
-          {rank: 'r1l1'}
-          {rank: 'r1l2'}
-          {rank: 'r1l3'}
-        ], royalties: 10, valid: true}
-        {lines: [
-          {rank: 'r2l1'}
-          {rank: 'r2l2'}
-          {rank: 'r2l3'}
-        ], royalties: 10, valid: true}
-        {lines: [
-          {rank: 'r3l1'}
-          {rank: 'r3l2'}
-          {rank: 'r3l3'}
-        ], royalties: 10, valid: true}
+        {
+          rank: {
+            lines: [
+              {rank: 'r1l1', royalties: 0}
+              {rank: 'r1l2', royalties: 0}
+              {rank: 'r1l3', royalties: 0}
+            ], valid: true}
+        }
+        {
+          rank: {
+            lines: [
+              {rank: 'r2l1', royalties: 0}
+              {rank: 'r2l2', royalties: 0}
+              {rank: 'r2l3', royalties: 0}
+            ], valid: true}
+        }
+        {
+          rank: {
+            lines: [
+              {rank: 'r3l1', royalties: 0}
+              {rank: 'r3l2', royalties: 0}
+              {rank: 'r3l3', royalties: 0}
+            ], valid: true}
+        }
       ]
+      royalties = (fill)->
+        hands[0].rank.lines[0].royalties = fill[0]
+        hands[0].rank.lines[1].royalties = fill[1]
+        hands[0].rank.lines[2].royalties = fill[2]
+        hands[1].rank.lines[0].royalties = fill[3]
+        hands[1].rank.lines[1].royalties = fill[4]
+        hands[1].rank.lines[2].royalties = fill[5]
+        hands[2].rank.lines[0].royalties = fill[6]
+        hands[2].rank.lines[1].royalties = fill[7]
+        hands[2].rank.lines[2].royalties = fill[8]
 
     it 'equal', ->
       result = fn(hands)
       assert.equal 0, result[0].points_change
-      assert.equal 0, result[0].lines[0].points_change
-      assert.equal 0, result[0].lines[1].points_change
-      assert.equal 0, result[0].lines[2].points_change
+      assert.equal 0, result[0].rank.lines[0].points_change
+      assert.equal 0, result[0].rank.lines[1].points_change
+      assert.equal 0, result[0].rank.lines[2].points_change
       assert.equal 0, result[1].points_change
       assert.equal 0, result[2].points_change
       assert.equal 9, PokerRank__compare_hands.callCount
@@ -238,6 +273,51 @@ describe 'PokerOFCRank', ->
       assert.equal 'r1l1', PokerRank__compare_hands.getCall(3).args[0]
       assert.equal 'r3l1', PokerRank__compare_hands.getCall(3).args[1]
 
+    it 'royalties_change', ->
+      royalties [
+        5, 10, 15
+        1, 2, 3
+        10, 11, 12
+      ]
+      result = fn(hands)
+      assert.equal -1, result[0].rank.lines[0].royalties_change
+      assert.equal 7, result[0].rank.lines[1].royalties_change
+      assert.equal 15, result[0].rank.lines[2].royalties_change
+      assert.equal -13, result[1].rank.lines[0].royalties_change
+      assert.equal -17, result[1].rank.lines[1].royalties_change
+      assert.equal -21, result[1].rank.lines[2].royalties_change
+      assert.equal 14, result[2].rank.lines[0].royalties_change
+      assert.equal 10, result[2].rank.lines[1].royalties_change
+      assert.equal 6, result[2].rank.lines[2].royalties_change
+
+    it 'royalties_change (invalid)', ->
+      royalties [
+        5, 10, 15
+        1, 2, 3
+        10, 11, 12
+      ]
+      hands[0].rank.valid = false
+      result = fn(hands)
+      assert.equal -11, result[0].rank.lines[0].royalties_change
+      assert.equal -13, result[0].rank.lines[1].royalties_change
+      assert.equal -15, result[0].rank.lines[2].royalties_change
+
+    it 'royalties_change (invalid)', ->
+      royalties [
+        5, 10, 15
+        1, 2, 3
+        10, 11, 12
+      ]
+      hands[0].rank.valid = false
+      hands[2].rank.valid = false
+      result = fn(hands)
+      assert.equal -1, result[0].rank.lines[0].royalties_change
+      assert.equal -2, result[0].rank.lines[1].royalties_change
+      assert.equal -3, result[0].rank.lines[2].royalties_change
+      assert.equal 2, result[1].rank.lines[0].royalties_change
+      assert.equal 4, result[1].rank.lines[1].royalties_change
+      assert.equal 6, result[1].rank.lines[2].royalties_change
+
     it 'win first', ->
       ranks = [
         1, -1, 1
@@ -246,13 +326,13 @@ describe 'PokerOFCRank', ->
       ]
       result = fn(hands)
       assert.equal 1, result[0].points_change
-      assert.equal 1, result[0].lines[0].points_change
-      assert.equal -1, result[0].lines[1].points_change
-      assert.equal 1, result[0].lines[2].points_change
+      assert.equal 1, result[0].rank.lines[0].points_change
+      assert.equal -1, result[0].rank.lines[1].points_change
+      assert.equal 1, result[0].rank.lines[2].points_change
       assert.equal -1, result[1].points_change
-      assert.equal -1, result[1].lines[0].points_change
-      assert.equal 1, result[1].lines[1].points_change
-      assert.equal -1, result[1].lines[2].points_change
+      assert.equal -1, result[1].rank.lines[0].points_change
+      assert.equal 1, result[1].rank.lines[1].points_change
+      assert.equal -1, result[1].rank.lines[2].points_change
 
     it 'win middle', ->
       ranks = [
@@ -262,17 +342,17 @@ describe 'PokerOFCRank', ->
       ]
       result = fn(hands)
       assert.equal -2, result[0].points_change
-      assert.equal -2, result[0].lines[0].points_change
-      assert.equal -2, result[0].lines[1].points_change
-      assert.equal 2, result[0].lines[2].points_change
+      assert.equal -2, result[0].rank.lines[0].points_change
+      assert.equal -2, result[0].rank.lines[1].points_change
+      assert.equal 2, result[0].rank.lines[2].points_change
       assert.equal 2, result[1].points_change
-      assert.equal 2, result[1].lines[0].points_change
-      assert.equal 2, result[1].lines[1].points_change
-      assert.equal -2, result[1].lines[2].points_change
+      assert.equal 2, result[1].rank.lines[0].points_change
+      assert.equal 2, result[1].rank.lines[1].points_change
+      assert.equal -2, result[1].rank.lines[2].points_change
       assert.equal 0, result[2].points_change
-      assert.equal 0, result[2].lines[0].points_change
-      assert.equal 0, result[2].lines[1].points_change
-      assert.equal 0, result[2].lines[2].points_change
+      assert.equal 0, result[2].rank.lines[0].points_change
+      assert.equal 0, result[2].rank.lines[1].points_change
+      assert.equal 0, result[2].rank.lines[2].points_change
 
     it 'invalid hand', ->
       ranks = [
@@ -281,22 +361,22 @@ describe 'PokerOFCRank', ->
         1, 1, 1
       ]
 
-      hands[0].valid = false
-      hands[2].valid = false
+      hands[0].rank.valid = false
+      hands[2].rank.valid = false
       result = fn(hands)
 
       assert.equal -6, result[0].points_change
-      assert.equal -2, result[0].lines[0].points_change
-      assert.equal -2, result[0].lines[1].points_change
-      assert.equal -2, result[0].lines[2].points_change
+      assert.equal -2, result[0].rank.lines[0].points_change
+      assert.equal -2, result[0].rank.lines[1].points_change
+      assert.equal -2, result[0].rank.lines[2].points_change
       assert.equal 12, result[1].points_change
-      assert.equal 4, result[1].lines[0].points_change
-      assert.equal 4, result[1].lines[1].points_change
-      assert.equal 4, result[1].lines[2].points_change
+      assert.equal 4, result[1].rank.lines[0].points_change
+      assert.equal 4, result[1].rank.lines[1].points_change
+      assert.equal 4, result[1].rank.lines[2].points_change
       assert.equal -6, result[2].points_change
-      assert.equal -2, result[2].lines[0].points_change
-      assert.equal -2, result[2].lines[1].points_change
-      assert.equal -2, result[2].lines[2].points_change
+      assert.equal -2, result[2].rank.lines[0].points_change
+      assert.equal -2, result[2].rank.lines[1].points_change
+      assert.equal -2, result[2].rank.lines[2].points_change
 
     it 'scoop', ->
       ranks = [
@@ -306,22 +386,24 @@ describe 'PokerOFCRank', ->
       ]
       result = fn(hands)
       assert.equal -7, result[0].points_change
-      assert.equal -3, result[0].lines[0].points_change
-      assert.equal -3, result[0].lines[1].points_change
-      assert.equal -1, result[0].lines[2].points_change
+      assert.equal -3, result[0].rank.lines[0].points_change
+      assert.equal -3, result[0].rank.lines[1].points_change
+      assert.equal -1, result[0].rank.lines[2].points_change
       assert.equal 12, result[1].points_change
-      assert.equal 4, result[1].lines[0].points_change
-      assert.equal 4, result[1].lines[1].points_change
-      assert.equal 4, result[1].lines[2].points_change
+      assert.equal 4, result[1].rank.lines[0].points_change
+      assert.equal 4, result[1].rank.lines[1].points_change
+      assert.equal 4, result[1].rank.lines[2].points_change
       assert.equal -5, result[2].points_change
-      assert.equal -1, result[2].lines[0].points_change
-      assert.equal -1, result[2].lines[1].points_change
-      assert.equal -3, result[2].lines[2].points_change
+      assert.equal -1, result[2].rank.lines[0].points_change
+      assert.equal -1, result[2].rank.lines[1].points_change
+      assert.equal -3, result[2].rank.lines[2].points_change
 
     it 'royalties', ->
-      hands[0].royalties = 5
-      hands[1].royalties = 9
-      hands[2].royalties = 15
+      royalties [
+        1, 2, 2
+        2, 5, 2
+        9, 5, 1
+      ]
       result = fn(hands)
       assert.equal -14, result[0].points_change
       assert.equal -2, result[1].points_change
