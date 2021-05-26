@@ -206,6 +206,7 @@ describe 'PokerPineappleOFC', ->
       o.players = sinon.fake.returns [1, 2]
       o._round_prepare_timeout = null
       Player::toJSON = toJSON = sinon.fake (user_id)-> if !user_id then {glo: 'bal'} else {'for': 'user'}
+      o._round_prepare_emit = sinon.spy()
       o.on 'player:add', spy
 
     it 'default', ->
@@ -219,6 +220,7 @@ describe 'PokerPineappleOFC', ->
       assert.deepEqual({5: 0}, o._players_id)
       assert.equal 1, o.start.callCount
       assert.equal 1, o.players.callCount
+      assert.equal 0, o._round_prepare_emit.callCount
 
     it 'event', ->
       o.player_add {id: 5}
@@ -247,6 +249,7 @@ describe 'PokerPineappleOFC', ->
       o._round_prepare_timeout = 3
       o.player_add({id: 5})
       assert.equal 0, o.start.callCount
+      assert.equal 1, o._round_prepare_emit.callCount
 
     it 'players not enough', ->
       o.players = sinon.fake.returns [1]
@@ -369,19 +372,21 @@ describe 'PokerPineappleOFC', ->
 
   describe '_round_prepare', ->
     beforeEach ->
-      o.options.delay_round_prepare = 2
+      o.options.delay_round_prepare = 10
       o.options.fantasyland = true
       o._round = sinon.spy()
       o.on 'round_prepare', spy
       o._round_prepare_timeout = null
 
     it 'default', ->
+      o._round_prepare_emit = sinon.spy()
       o._round_prepare()
       assert.equal 0, o._round.callCount
-      assert.equal 1, spy.callCount
-      assert.deepEqual {delay: 2, fantasyland: true}, spy.getCall(0).args[0]
+      assert.equal 1, o._round_prepare_emit.callCount
       assert.equal true, !!o._round_prepare_timeout
-      clock.tick 2100
+      date = new Date().getTime()
+      assert.equal true, new Date(date - 1000) <= o._round_prepare_start <= new Date(date + 1000)
+      clock.tick 10100
       assert.equal null, o._round_prepare_timeout
       assert.equal 1, o._round.callCount
 
@@ -395,11 +400,30 @@ describe 'PokerPineappleOFC', ->
       assert.equal 0, o._round.callCount
       assert.equal 1, spy_cancel.callCount
 
+    it '_round_prepare_emit', ->
+      o._round_prepare_start = new Date()
+      o._round_prepare_emit()
+      assert.equal 1, spy.callCount
+      assert.deepEqual {delay: 10, fantasyland: true}, spy.getCall(0).args[0]
+
+    it '_round_prepare_emit (pass 5.4 sec )', ->
+      o._round_prepare_start = new Date()
+      clock.tick 5400
+      o._round_prepare_emit()
+      assert.equal 4, spy.getCall(0).args[0].delay
+
+    it '_round_prepare_emit (pass 12 sec )', ->
+      o._round_prepare_start = new Date()
+      clock.tick 12000
+      o._round_prepare_emit()
+      assert.equal 0, spy.getCall(0).args[0].delay
+
     it 'no delay', ->
+      o._round_prepare_emit = sinon.spy()
       o.options.delay_round_prepare = 0
       o._round_prepare()
       assert.equal 1, o._round.callCount
-      assert.equal 0, spy.callCount
+      assert.equal 0, o._round_prepare_emit.callCount
 
 
   describe '_round', ->

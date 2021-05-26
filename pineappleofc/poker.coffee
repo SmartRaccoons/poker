@@ -79,6 +79,8 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     @emit 'player:add', player.toJSON(), {[player.options.id]: player.toJSON(player.options.id)}
     if !@options.running and @options.autostart and !@_round_prepare_timeout and @players().length >= 2
       @start()
+    else if @_round_prepare_timeout
+      @_round_prepare_emit()
     return true
 
   _player_remove: (player)->
@@ -109,11 +111,16 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
   _round_prepare: ->
     if !@options.delay_round_prepare
       return @_round()
-    @emit 'round_prepare', {delay: @options.delay_round_prepare, fantasyland: @options.fantasyland}
+    @_round_prepare_start = new Date()
     @_round_prepare_timeout = setTimeout =>
       @_round_prepare_timeout = null
       @_round()
     , @options.delay_round_prepare * 1000
+    @_round_prepare_emit()
+
+  _round_prepare_emit: ->
+    delay = Math.floor( @options.delay_round_prepare - (new Date().getTime() - @_round_prepare_start.getTime() ) / 1000 )
+    @emit 'round_prepare', {delay: ( if delay <= 0 then 0 else delay ), fantasyland: @options.fantasyland}
 
   _round_prepare_cancel: ->
     clearTimeout @_round_prepare_timeout
