@@ -178,15 +178,16 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
         if not_fantasyland.length is 0 and @options.fantasyland then { players }
       )
       Object.assign(
+        {}
+        if !@options.fantasyland then not_fantasyland.reduce (acc, user_id)->
+          Object.assign acc, {[user_id]: {turn: turn_fold}}
+        , {}
         { [@options.id]: Object.assign(
             {}
             { turn }
             if @options.fantasyland and not_fantasyland.length > 0 then {players}
           )
         }
-        if !@options.fantasyland then not_fantasyland.reduce (acc, user_id)->
-          Object.assign acc, {[user_id]: {turn: turn_fold}}
-        , {}
       )
     ]
 
