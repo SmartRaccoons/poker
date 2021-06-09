@@ -75,6 +75,13 @@ describe 'PokerPineappleOFCPlayer', ->
       o.options.turns_out = 2
       assert.equal false, o._turns_out_limit()
 
+    it '_rank_calculate', ->
+      o.options.fantasyland = 'ft'
+      PokerOFCRank_calculate = sinon.fake.returns 'calc'
+      assert.equal 'calc', o._rank_calculate([{l: 0, card: 'Qc'}, {l: 1, card: 'Kc'}, {l: 2, card: 'Ac'}, {l: 0, card: 'Tc'}])
+      assert.deepEqual [['Qc', 'Tc'], ['Kc'], ['Ac'] ], PokerOFCRank_calculate.getCall(0).args[0]
+      assert.equal 'ft', PokerOFCRank_calculate.getCall(0).args[1]
+
 
   describe 'cards_require', ->
     beforeEach ->
@@ -143,18 +150,15 @@ describe 'PokerPineappleOFCPlayer', ->
     fn = null
     beforeEach ->
       fn = PokerPineappleOFCPlayer::options_bind['hand'].bind(o)
-      PokerOFCRank_calculate = sinon.fake.returns 'calc'
+      o._rank_calculate = sinon.fake.returns 'clc'
 
     it 'rank update', ->
-      o.options.hand_length = 5
-      o.options.hand = [{l: 0, card: 'Qc'}, {l: 1, card: 'Kc'}, {l: 2, card: 'Ac'}, {l: 0, card: 'Tc'}]
-      o.options.fantasyland = 'ft'
+      o.options.hand = 'hnd'
       fn()
       assert.equal 1, up.callCount
-      assert.deepEqual {rank: 'calc' }, up.getCall(0).args[0]
-      assert.equal 1, PokerOFCRank_calculate.callCount
-      assert.deepEqual [['Qc', 'Tc'], ['Kc'], ['Ac'] ], PokerOFCRank_calculate.getCall(0).args[0]
-      assert.equal 'ft', PokerOFCRank_calculate.getCall(0).args[1]
+      assert.deepEqual {rank: 'clc' }, up.getCall(0).args[0]
+      assert.equal 1, o._rank_calculate.callCount
+      assert.equal 'hnd', o._rank_calculate.getCall(0).args[0]
 
 
   describe 'options_bind (turns_out)', ->
@@ -414,10 +418,32 @@ describe 'PokerPineappleOFCPlayer', ->
       assert.deepEqual {hand: [2, 'c'], cards: [], fold: [1, {i: 1, card: 'c'}], hand_length: 5}, up.getCall(0).args[0]
       assert.equal 0, o._turn_automove_fantasyland.callCount
 
-    it 'automove fantasyland', ->
-      o.options.cards = [1, 2, 3, 4, 5, 6]
-      assert.deepEqual {cards: ['c2'], fold: [ {i: 1, card: 'c2'} ]}, o._turn_cards {cards: 'cu'}
-      assert.equal 1, o._turn_automove_fantasyland.callCount
+
+    describe 'automove fantasyland', ->
+      beforeEach ->
+        o.options.cards = [1, 2, 3, 4, 5, 6]
+        o._rank_calculate = sinon.fake.returns {valid: true}
+
+      it 'default', ->
+        assert.deepEqual {cards: ['c2'], fold: [ {i: 1, card: 'c2'} ]}, o._turn_cards {cards: 'cu'}
+        assert.equal 1, o._turn_automove_fantasyland.callCount
+        assert.equal 0, o._rank_calculate.callCount
+
+      it 'no automove', ->
+        o._turn_cards_check = sinon.fake.returns {cards: ['c'], fold: [], automove: false}
+        o._turn_cards {cards: 'cu'}
+        assert.equal 0, o._turn_automove_fantasyland.callCount
+        assert.equal 1, o._rank_calculate.callCount
+        assert.deepEqual ['c'], o._rank_calculate.getCall(0).args[0]
+
+      it 'no automove and invalid', ->
+        o._rank_calculate = sinon.fake.returns {valid: false}
+        o._turn_cards_check = sinon.fake.returns {cards: ['c'], fold: [], automove: false}
+        o._turn_cards {cards: 'cu'}
+        assert.equal 1, o._turn_automove_fantasyland.callCount
+        assert.equal 1, o._rank_calculate.callCount
+
+
 
     it 'no fold', ->
       o._turn_cards_check = sinon.fake.returns {cards: ['c'], fold: [], automove: true}

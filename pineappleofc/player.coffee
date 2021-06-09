@@ -36,13 +36,7 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
   options_bind:
     'hand': ->
       @options_update
-        rank: Rank::calculate(
-          do =>
-            [0..2].map (line)=>
-              @options.hand
-                .filter ({l})-> l is line
-                .map ({card})-> card
-          , @options.fantasyland)
+        rank: @_rank_calculate(@options.hand)
     turns_out: ->
       if @_turns_out_limit()
         @options_update {out: true}
@@ -65,6 +59,15 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
       {playing: true, rounds: @options.rounds + 1}
       if timebank then {timebank: @options.timebank + timebank}
     )
+
+  _rank_calculate: (cards)->
+    Rank::calculate(
+      do =>
+        [0..2].map (line)=>
+          cards
+            .filter ({l})-> l is line
+            .map ({card})-> card
+      , @options.fantasyland)
 
   _turn_automove_fantasyland: ->
     cards_clone = _cloneDeep(@options.cards)
@@ -132,7 +135,7 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
 
   _turn_cards: ({cards})->
     {cards, fold, automove} = @_turn_cards_check cards
-    if automove and @options.cards.length > 5
+    if @options.cards.length > 5 and ( automove or !@_rank_calculate(cards).valid )
       {cards, fold} = @_turn_automove_fantasyland()
     hand_length = @options.hand_length + cards.length
     fold = fold.map (card)->
