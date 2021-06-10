@@ -15,11 +15,14 @@ describe 'Rank', ->
     it 'constructor', ->
       r = new Rank(['Qd', 'Kd', 'Ac'])
       assert.deepEqual([['A', 'c'], ['K', 'd'], ['Q', 'd']], r._hand)
-      assert.equal(false, r._flush)
+      assert.deepEqual([], r._flush)
 
     it 'flush', ->
-      r = new Rank(['Ac', 'Kc', 'Ah', '2c', '3c', 'Jc', 'Tc'])
-      assert.deepEqual([ ['A', 'c'], ['K', 'c'], ['J', 'c'], ['T', 'c'], ['3', 'c'], ['2', 'c'] ], r._flush)
+      r = new Rank(['Ac', 'Kc', 'Ah', '2c', '3c', 'Jc', 'Tc', 'As', 'Ks', 'Ad', '2s', '3s', 'Js', 'Ts'])
+      assert.deepEqual([
+        [ ['A', 'c'], ['K', 'c'], ['J', 'c'], ['T', 'c'], ['3', 'c'], ['2', 'c'] ]
+        [ ['A', 's'], ['K', 's'], ['J', 's'], ['T', 's'], ['3', 's'], ['2', 's'] ]
+      ], r._flush)
 
     it '_straight', ->
       assert.deepEqual [0], Rank::_straight([ ['A', 's'], ['K', 's'], ['Q', 's'], ['J', 's'], ['T', 's'], ['9', 's'], ['8', 's'], ['7', 's'] ])[0]
@@ -119,38 +122,64 @@ describe 'Rank', ->
 
 
   describe 'royal_flush', ->
-    it 'success', ->
-      r = new Rank(['Ac', 'Kc', 'Ah', 'Qc', 'Jc', 'Tc', '9c'])
-      assert.deepEqual([0], r.royal_flush())
-      assert.deepEqual([ ['A', 'c'], ['K', 'c'], ['Q', 'c'], ['J', 'c'], ['T', 'c'] ], r._matched)
+    beforeEach ->
+      r._flush = [
+        [ ['A'], 2, 3, 4, ['T'], 6]
+        [ ['A'], 2, 3, 4, ['T']]
+      ]
+    it 'success 1st', ->
+      assert.deepEqual [0], r.royal_flush()
 
-    it 'failed', ->
-      r = new Rank(['Ac', 'Kc', 'Ah', '9c', 'Jc', 'Tc'])
-      assert.equal(false, r.royal_flush())
+    it 'success 2st', ->
+      r._flush[0] = [ ['A'], 2, 3, 4, 10, ['T']]
+      assert.deepEqual [0], r.royal_flush()
+      assert.deepEqual [ ['A'], 2, 3, 4, ['T'] ], r._matched
+
+    it 'fail both', ->
+      r._flush[0] = [ ['A'], 2, 3, 4, 10, ['T']]
+      r._flush[1] = [ ['A'], 2, 3, 4, 10, ['T']]
+      assert.equal false, r.royal_flush()
+
+    it 'no flush', ->
+      r._flush = []
+      assert.equal false, r.royal_flush()
 
 
   describe 'straight_flush', ->
+    straight = []
+    beforeEach ->
+      r._flush = ['f1', 'f2']
+      straight = [ [[1], 'm1'], [[0], 'm2'] ]
+      r._straight = sinon.fake -> straight.shift()
+
     it 'success', ->
-      r._flush = [1, 2, 3, 4, 5, 6]
-      r._straight = -> [ [1], [2, 3] ]
-      sinon.spy(r, '_straight')
-      assert.deepEqual([1], r.straight_flush())
-      assert.equal(1, r._straight.callCount)
-      assert.deepEqual([1, 2, 3, 4, 5, 6], r._straight.getCall(0).args[0])
-      assert.deepEqual([2, 3], r._matched)
+      assert.deepEqual [0], r.straight_flush()
+      assert.equal 2, r._straight.callCount
+      assert.equal 'f1', r._straight.getCall(0).args[0]
+      assert.equal 'f2', r._straight.getCall(1).args[0]
+      assert.equal 'm2', r._matched
+
+    it 'success 1st', ->
+      straight[1][0] = [2]
+      assert.deepEqual [1], r.straight_flush()
+      assert.equal 'm1', r._matched
+
+    it '1st false', ->
+      straight[0] = [false]
+      assert.deepEqual [0], r.straight_flush()
+
+    it '2nd false', ->
+      straight[1] = [false]
+      assert.deepEqual [1], r.straight_flush()
+
+    it 'both false', ->
+      straight[0] = [false]
+      straight[1] = [false]
+      assert.equal false, r.straight_flush()
 
     it 'no flush', ->
-      r._flush = false
-      r._straight = sinon.spy()
-      assert.equal(0, r._straight.callCount)
-      assert.equal(false, r.straight_flush())
-      assert.ok !r._matched
-
-    it 'no straight', ->
-      r._flush = [1, 2]
-      r._straight = -> [false]
-      assert.equal(false, r.straight_flush())
-      assert.ok !r._matched
+      r._flush = []
+      assert.equal false, r.straight_flush()
 
 
   describe 'four_of_a_kind', ->
@@ -224,19 +253,35 @@ describe 'Rank', ->
 
 
   describe 'flush', ->
+    beforeEach ->
+      kickers = ['k1', 'k2']
+      r._kicker = sinon.fake -> kickers.shift()
+      r._compare_hands = sinon.fake.returns 0
+      r._flush = [
+        [1, 2, 3, 4, 5, 6]
+        [11, 12, 13, 14, 15, 16]
+      ]
+
     it 'success', ->
-      r._kicker = -> 'kicker'
-      sinon.spy(r, '_kicker')
-      r._flush = [1, 2, 3, 4, 5, 6]
-      assert.equal('kicker', r.flush())
-      assert.equal(1, r._kicker.callCount)
-      assert.deepEqual([1, 2, 3, 4, 5, 6], r._kicker.getCall(0).args[0])
-      assert.equal(5, r._kicker.getCall(0).args[1])
-      assert.deepEqual([1, 2, 3, 4, 5], r._matched)
+      assert.equal 'k1', r.flush()
+      assert.equal 2, r._kicker.callCount
+      assert.deepEqual [1, 2, 3, 4, 5, 6], r._kicker.getCall(0).args[0]
+      assert.equal 5, r._kicker.getCall(0).args[1]
+      assert.deepEqual [11, 12, 13, 14, 15, 16], r._kicker.getCall(1).args[0]
+      assert.equal 5, r._kicker.getCall(0).args[1]
+      assert.equal 1, r._compare_hands.callCount
+      assert.equal 'k1', r._compare_hands.getCall(0).args[0]
+      assert.equal 'k2', r._compare_hands.getCall(0).args[1]
+      assert.deepEqual [1, 2, 3, 4, 5], r._matched
+
+    it 'success second hand', ->
+      r._compare_hands = -> -1
+      assert.equal 'k2', r.flush()
+      assert.deepEqual [11, 12, 13, 14, 15], r._matched
 
     it 'no flush', ->
-      r._flush = false
-      assert.equal(false, r.flush())
+      r._flush = []
+      assert.equal false, r.flush()
       assert.ok !r._matched
 
 

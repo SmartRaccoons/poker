@@ -21,11 +21,11 @@ module.exports.PokerRank = class PokerRank
     @_hand = hand
     .map (card)=> [card.substr(0, 1), card.substr(1, 1)]
     .sort (a, b)=> @_deck_ranks.indexOf(a[0]) - @_deck_ranks.indexOf(b[0])
-    @_flush = false
+    @_flush = []
     @_deck_suits.forEach (suit)=>
       suited = @_hand.filter (h)-> h[1] is suit
       if suited.length >= 5
-        @_flush = suited
+        @_flush.push suited
     for combination, i in @_combinations
       if i in combinations_ignore
         continue
@@ -90,18 +90,21 @@ module.exports.PokerRank = class PokerRank
     .slice(0, kickers)
 
   royal_flush: ->
-    if !( @_flush and @_flush[0][0] is @_deck_ranks[0] and @_flush[4][0] is @_deck_ranks[4] )
-      return false
-    @_matched = @_flush.slice(0, 5)
-    return [0]
+    if @_flush.length > 0
+      for flush in @_flush
+        if flush[0][0] is @_deck_ranks[0] and flush[4][0] is @_deck_ranks[4]
+          @_matched = flush.slice(0, 5)
+          return [0]
+    return false
 
   straight_flush: ->
-    if @_flush
-      [rank, matched] = @_straight(@_flush)
-      if rank
+    return @_flush.reduce (acc, flush, i)=>
+      [rank, matched] = @_straight(flush)
+      if rank and !( acc and rank[0] > acc[0])
         @_matched = matched
         return rank
-    false
+      return acc
+    , false
 
   four_of_a_kind: ->
     for rank, i in @_deck_ranks
@@ -124,10 +127,16 @@ module.exports.PokerRank = class PokerRank
     return false
 
   flush: ->
-    if !@_flush
+    if @_flush.length is 0
       return false
-    @_matched = @_flush.slice(0, 5)
-    @_kicker(@_flush, 5)
+    kickers = @_flush.map (flush)=> @_kicker(flush, 5)
+    flush_best = kickers.slice(1).reduce (acc, kicker, i)=>
+      if @_compare_hands(kickers[acc], kicker) is -1
+        return i + 1
+      return acc
+    , 0
+    @_matched = @_flush[flush_best].slice(0, 5)
+    kickers[flush_best]
 
   straight: ->
     [rank, matched] = @_straight(@_hand)
