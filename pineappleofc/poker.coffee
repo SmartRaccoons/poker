@@ -147,7 +147,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
       )
     @emit 'round', {
       dealer
-      players: @players({playing: true}).map (p)-> _pick p.options, ['timebank', 'position']
+      players: @players({playing: true}).map (p)-> _pick p.options, ['timebank', 'position', 'rounds']
     }
     @players({playing: true}).forEach (p)=>
       cards_require = p.cards_require(true)

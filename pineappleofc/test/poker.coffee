@@ -462,7 +462,7 @@ describe 'PokerPineappleOFC', ->
       assert.deepEqual {playing: true}, o.players.getCall(1).args[0]
       assert.deepEqual {playing: true}, o.players.getCall(2).args[0]
       assert.equal 1, spy.callCount
-      assert.deepEqual {dealer: 2, players: [{timebank: 10, position: 0}, {timebank: 15, position: 1}]}, spy.getCall(0).args[0]
+      assert.deepEqual {dealer: 2, players: [{timebank: 10, position: 0, rounds: 5}, {timebank: 15, position: 1, rounds: 5}]}, spy.getCall(0).args[0]
       assert.equal 1, o._progress.callCount
       assert.equal 2, o._progress.getCall(0).args[0]
       assert.equal 1, o._cards.shuffle.callCount
