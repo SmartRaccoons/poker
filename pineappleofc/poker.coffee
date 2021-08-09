@@ -19,6 +19,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     delay_round: 2000
     delay_round_prepare: 10
     delay_player_turn: 200
+    delay_player_ask: 200
     timebank_rounds: [] # [ [0, 10], [3, 5] ]
     autostart: true
     turns_out_max: 0 #0 - unlimited
@@ -170,7 +171,9 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     position = @_player_position_next_action(position)
     if position is null
       return
-    @_players[position].ask { cards: @_cards.deal( @_players[position].cards_require() )}
+    setTimeout =>
+      @_players[position].ask { cards: @_cards.deal( @_players[position].cards_require() )}
+    , @options.delay_player_ask
 
   turn: ({user_id, turn})->
     if !@_players[@_players_id[user_id]].options.waiting

@@ -77,6 +77,7 @@ describe 'PokerPineappleOFC', ->
       assert.equal true, PokerPineappleOFC::options_default.autostart
       assert.equal 2000, PokerPineappleOFC::options_default.delay_round
       assert.equal 200, PokerPineappleOFC::options_default.delay_player_turn
+      assert.equal 200, PokerPineappleOFC::options_default.delay_player_ask
       assert.equal 0, PokerPineappleOFC::options_default.turns_out_max
 
       assert.equal 0, PokerPineappleOFC::options_default.dealer
@@ -542,6 +543,7 @@ describe 'PokerPineappleOFC', ->
       assert.equal 1, o._progress_check.callCount
       assert.equal 1, o._player_position_next_action.callCount
       assert.equal 2, o._player_position_next_action.getCall(0).args[0]
+      clock.tick 200
       assert.equal 1, o._cards.deal.callCount
       assert.equal 5, o._cards.deal.getCall(0).args[0]
       assert.equal 1, player1.cards_require.callCount
