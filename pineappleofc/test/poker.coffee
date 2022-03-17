@@ -717,17 +717,34 @@ describe 'PokerPineappleOFC', ->
       assert.equal 1, player2.round_end.callCount
       assert.deepEqual {chips_change: -15, points_change: -2}, player2.round_end.getCall(0).args[0]
 
-    it 'remove on timeout', ->
-      players[0].chips = 5
-      o._round_end()
-      o.players = sinon.fake -> [1, 2]
-      clock.tick 3000
-      assert.equal 1, o._player_remove.callCount
-      assert.equal 1, o._player_remove.getCall(0).args[0].options.id
-      assert.equal 1, up.callCount
-      assert.deepEqual {fantasyland: true}, up.getCall(0).args[0]
-      assert.equal 1, o.players.callCount
-      assert.equal 1, o._round_prepare.callCount
+
+    describe 'remove on timeout', ->
+      round_finish = null
+      beforeEach ->
+        round_finish = sinon.spy()
+        o.on 'round_end_timeout', round_finish
+        players[0].chips = 5
+
+      it 'default', ->
+        o._round_end()
+        o.players = sinon.fake -> [1, 2]
+        clock.tick 3000
+        assert.equal 1, o._player_remove.callCount
+        assert.equal 1, o._player_remove.getCall(0).args[0].options.id
+        assert.equal 1, round_finish.callCount
+        assert.deepEqual {players_remove: [1]}, round_finish.getCall(0).args[0]
+        assert.equal 1, up.callCount
+        assert.deepEqual {fantasyland: true}, up.getCall(0).args[0]
+        assert.equal 1, o.players.callCount
+        assert.equal 1, o._round_prepare.callCount
+
+      it 'autostart disabled', ->
+        o.options.autostart = false
+        o._round_end()
+        o.players = sinon.fake -> [1, 2]
+        clock.tick 3000
+        assert.equal 0, o._round_prepare.callCount
+
 
     it 'not enough users', ->
       o._round_end()
