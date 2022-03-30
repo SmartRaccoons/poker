@@ -104,7 +104,10 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
       return []
     return not_fantasyland
 
-  start: ->
+  start: (params)->
+    if params and params.players
+      params.players.forEach ({id, timebank})=>
+        @_players[@_players_id[id]].options_update {timebank}
     if @options.delay_round_prepare
       return @_round_prepare()
     @_round()
@@ -230,7 +233,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     @emit 'round_end', Object.assign(
       {
         players: players.map (p)=>
-          Object.assign {}, p, _pick(@_players[p.position].options, ['fantasyland', 'hand', 'chips'])
+          Object.assign {}, p, _pick(@_players[p.position].options, ['fantasyland', 'hand', 'chips', 'timebank'])
       }
       if fantasyland then {fantasyland}
       if rake then {rake}

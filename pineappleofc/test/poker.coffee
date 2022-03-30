@@ -701,9 +701,11 @@ describe 'PokerPineappleOFC', ->
       players_copy[0].fantasyland = true
       players_copy[0].hand = 'h'
       players_copy[0].chips = 5
+      players_copy[0].timebank = 10
       players_copy[1].fantasyland = false
       players_copy[1].hand = 'h2'
       players_copy[1].chips = 20
+      players_copy[1].timebank = 15
       assert.deepEqual {players: players_copy, rake: 2, fantasyland: true}, spy.getCall(0).args[0]
       assert.equal 1, o.players.callCount
       assert.deepEqual {playing: true}, o.players.getCall(0).args[0]
@@ -805,6 +807,9 @@ describe 'PokerPineappleOFC', ->
       o.options.delay_round_prepare = 0
       o._round = sinon.spy()
       o._round_prepare = sinon.spy()
+      o._players_id[1] = 0
+      o._players_id[2] = 2
+      o._players = [player1, null, player2]
 
     it 'default', ->
       o.start()
@@ -816,6 +821,14 @@ describe 'PokerPineappleOFC', ->
       o.start()
       assert.equal 0, o._round.callCount
       assert.equal 1, o._round_prepare.callCount
+
+    it 'params', ->
+      o.start {players: [{id: 1, timebank: 11}, {id: 2, timebank: 5}]}
+      assert.equal 1, player1.options_update.callCount
+      assert.deepEqual {timebank: 11}, player1.options_update.getCall(0).args[0]
+      assert.equal 1, player2.options_update.callCount
+      assert.deepEqual {timebank: 5}, player2.options_update.getCall(0).args[0]
+
 
   describe 'toJSON', ->
     beforeEach ->
