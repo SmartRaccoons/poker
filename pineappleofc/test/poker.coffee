@@ -810,11 +810,13 @@ describe 'PokerPineappleOFC', ->
       o._players_id[1] = 0
       o._players_id[2] = 2
       o._players = [player1, null, player2]
+      o.options_update = sinon.spy()
 
     it 'default', ->
       o.start()
       assert.equal 1, o._round.callCount
       assert.equal 0, o._round_prepare.callCount
+      assert.equal 0, o.options_update.callCount
 
     it 'round_prepare', ->
       o.options.delay_round_prepare = 10
@@ -828,6 +830,12 @@ describe 'PokerPineappleOFC', ->
       assert.deepEqual {timebank: 11}, player1.options_update.getCall(0).args[0]
       assert.equal 1, player2.options_update.callCount
       assert.deepEqual {timebank: 5}, player2.options_update.getCall(0).args[0]
+      assert.equal 0, o.options_update.callCount
+
+    it 'bet', ->
+      o.start {bet: 0}
+      assert.equal 1, o.options_update.callCount
+      assert.deepEqual {bet: 0}, o.options_update.getCall(0).args[0]
 
 
   describe 'toJSON', ->

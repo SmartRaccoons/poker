@@ -105,9 +105,12 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     return not_fantasyland
 
   start: (params)->
-    if params and params.players
-      params.players.forEach ({id, timebank})=>
-        @_players[@_players_id[id]].options_update {timebank}
+    if params
+      if 'players' of params
+        params.players.forEach ({id, timebank})=>
+          @_players[@_players_id[id]].options_update {timebank}
+      if 'bet' of params
+        @options_update {bet: params.bet}
     if @options.delay_round_prepare
       return @_round_prepare()
     @_round()
