@@ -734,25 +734,33 @@ describe 'PokerPineappleOFC', ->
         assert.equal 1, o._player_remove.callCount
         assert.equal 1, o._player_remove.getCall(0).args[0].options.id
         assert.equal 1, round_finish.callCount
-        assert.deepEqual {players_remove: [1]}, round_finish.getCall(0).args[0]
+        assert.deepEqual {players_remove: [1], fantasyland: true}, round_finish.getCall(0).args[0]
         assert.equal 1, up.callCount
         assert.deepEqual {fantasyland: true}, up.getCall(0).args[0]
         assert.equal 1, o.players.callCount
         assert.equal 1, o._round_prepare.callCount
 
+      it 'no fantasyland', ->
+        player1.options.fantasyland = false
+        o._round_end()
+        o.players = sinon.fake -> [1, 2]
+        clock.tick 3000
+        assert.equal false, 'fantasyland' in Object.keys(round_finish.getCall(0).args[0])
+
       it 'autostart disabled', ->
+        player1.options.fantasyland = false
         o.options.autostart = false
         o._round_end()
         o.players = sinon.fake -> [1, 2]
         clock.tick 3000
         assert.equal 0, o._round_prepare.callCount
 
+      it 'not enough users', ->
+        o._round_end()
+        o.players = sinon.fake -> [1]
+        clock.tick 3000
+        assert.equal 0, o._round_prepare.callCount
 
-    it 'not enough users', ->
-      o._round_end()
-      o.players = sinon.fake -> [1]
-      clock.tick 3000
-      assert.equal 0, o._round_prepare.callCount
 
     it 'round_last', ->
       o._round_prepare = sinon.spy()

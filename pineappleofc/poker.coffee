@@ -244,7 +244,10 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     setTimeout =>
       players_remove.forEach (p)=> @_player_remove(p)
       @options_update Object.assign( {fantasyland}, if !fantasyland then { running: false } )
-      @emit 'round_end_timeout', {players_remove: players_remove.map (p)-> p.options.id}
+      @emit 'round_end_timeout', Object.assign(
+        {players_remove: players_remove.map (p)-> p.options.id}
+        if fantasyland then {fantasyland}
+      )
       if @_round_last
         @players().forEach (p)=>
           @_player_remove p
