@@ -29,6 +29,7 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     timeout_first: 0
     timeout_fantasyland: 0
     delay_player_turn: 0
+    turns_out_limit: 3
 
     playing: false
     waiting: false
@@ -194,7 +195,7 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
       )
     ]
 
-  _turns_out_limit: -> @options.turns_out >= 3
+  _turns_out_limit: -> @options.turns_out >= @options.turns_out_limit
 
   ask: ({cards})->
     @_ask_date = new Date()

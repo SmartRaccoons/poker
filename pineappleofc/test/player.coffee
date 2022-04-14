@@ -56,6 +56,7 @@ describe 'PokerPineappleOFCPlayer', ->
       assert.equal 0, PokerPineappleOFCPlayer::options_default.timeout_first
       assert.equal 0, PokerPineappleOFCPlayer::options_default.timeout_fantasyland
       assert.equal 0, PokerPineappleOFCPlayer::options_default.delay_player_turn
+      assert.equal 3, PokerPineappleOFCPlayer::options_default.turns_out_limit
       assert.equal false, PokerPineappleOFCPlayer::options_default.playing
       assert.equal false, PokerPineappleOFCPlayer::options_default.waiting
 
@@ -70,10 +71,13 @@ describe 'PokerPineappleOFCPlayer', ->
       assert.equal false, o.filter({fantasyland: true, out: true, hand_full: true})
 
     it '_turns_out_limit', ->
+      o.options.turns_out_limit = 3
       o.options.turns_out = 3
       assert.equal true, o._turns_out_limit()
       o.options.turns_out = 2
       assert.equal false, o._turns_out_limit()
+      o.options.turns_out_limit = 2
+      assert.equal true, o._turns_out_limit()
 
     it '_rank_calculate', ->
       o.options.fantasyland = 'ft'

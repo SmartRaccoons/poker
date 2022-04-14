@@ -23,6 +23,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     timebank_rounds: [] # [ [0, 10], [3, 5] ]
     autostart: true
     turns_out_max: 0 #0 - unlimited
+    turns_out_limit: 3
 
     dealer: 0
     running: false
@@ -61,7 +62,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     position = @_player_position_free()
     if position is -1
       return false
-    player = new (@Player)(Object.assign( _pick(@options, ['timeout', 'timeout_first', 'timeout_fantasyland', 'delay_player_turn']), {position}, data))
+    player = new (@Player)(Object.assign( _pick(@options, ['timeout', 'timeout_first', 'timeout_fantasyland', 'delay_player_turn', 'turns_out_limit']), {position}, data))
     @_players[position] = player
     @_players_id[data.id] = position
     ['out', 'timebank'].forEach (ev)=>

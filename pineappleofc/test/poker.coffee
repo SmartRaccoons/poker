@@ -79,6 +79,7 @@ describe 'PokerPineappleOFC', ->
       assert.equal 200, PokerPineappleOFC::options_default.delay_player_turn
       assert.equal 200, PokerPineappleOFC::options_default.delay_player_ask
       assert.equal 0, PokerPineappleOFC::options_default.turns_out_max
+      assert.equal 3, PokerPineappleOFC::options_default.turns_out_limit
 
       assert.equal 0, PokerPineappleOFC::options_default.dealer
       assert.equal false, PokerPineappleOFC::options_default.running
@@ -203,6 +204,7 @@ describe 'PokerPineappleOFC', ->
       o.options.timeout_first = 11
       o.options.timeout_fantasyland = 12
       o.options.delay_player_turn = 111
+      o.options.turns_out_limit = 5
       o._players = [null, '1', '2']
       o.players = sinon.fake.returns [1, 2]
       o._round_prepare_timeout = null
@@ -218,6 +220,7 @@ describe 'PokerPineappleOFC', ->
       assert.equal(11, o._players[0].options.timeout_first)
       assert.equal(12, o._players[0].options.timeout_fantasyland)
       assert.equal(111, o._players[0].options.delay_player_turn)
+      assert.equal(5, o._players[0].options.turns_out_limit)
       assert.deepEqual({5: 0}, o._players_id)
       assert.equal 1, o.start.callCount
       assert.equal 1, o.players.callCount
