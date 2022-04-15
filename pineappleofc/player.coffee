@@ -199,7 +199,7 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
 
   ask: ({cards})->
     @_ask_date = new Date()
-    waiting = !@_turns_out_limit() or @options.fantasyland
+    waiting = !@options.out or @options.fantasyland
     @options_update Object.assign(
       {cards: cards.map (card, r)-> Object.assign({}, card, {r, l: 3}) }
       if waiting then {waiting}
@@ -250,7 +250,7 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     return @options.playing and !@options.fantasyland and !@options.hand_full
 
   action_fantasyland: ->
-    if @options.waiting and @_turns_out_limit()
+    if @options.waiting and @options.out
       @turn()
 
   round_end: ({chips_change, points_change}, players_enough)->
@@ -277,7 +277,7 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     @_activity_timeout = timeout * 1000
     @_activity_timeout_start = new Date().getTime()
     @_activity_callback = setTimeout =>
-      if @_turns_out_limit() or @_activity_timebank or !(@options.timebank > 0)
+      if @options.out or @_activity_timebank or !(@options.timebank > 0)
         return @turn()
       @emit 'timebank', {timeout: @options.timebank}
       @_activity_timebank = true

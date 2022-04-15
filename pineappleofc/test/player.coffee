@@ -130,17 +130,16 @@ describe 'PokerPineappleOFCPlayer', ->
 
   describe 'action_fantasyland', ->
     beforeEach ->
-      o._turns_out_limit = sinon.fake.returns true
+      o.options.out = true
       o.options.waiting = true
       o.turn = sinon.spy()
 
     it 'default', ->
       o.action_fantasyland()
       assert.equal 1, o.turn.callCount
-      assert.equal 1, o._turns_out_limit.callCount
 
     it 'turns out limit', ->
-      o._turns_out_limit = -> false
+      o.options.out = false
       o.action_fantasyland()
       assert.equal 0, o.turn.callCount
 
@@ -557,7 +556,7 @@ describe 'PokerPineappleOFCPlayer', ->
       o.options.timeout = 3
       o.options.timeout_first = 5
       o.options.timeout_fantasyland = 15
-      o._turns_out_limit = sinon.fake.returns false
+      o.options.out = false
       o.on 'ask', spy
 
     it 'default', ->
@@ -569,10 +568,9 @@ describe 'PokerPineappleOFCPlayer', ->
       assert.equal 1, o._activity.callCount
       assert.equal 3, o._activity.getCall(0).args[0]
       assert.equal 1, spy.callCount
-      assert.equal 1, o._turns_out_limit.callCount
 
     it 'out', ->
-      o._turns_out_limit = -> true
+      o.options.out = true
       o.ask({cards: [{i: 1}]})
       assert.deepEqual {cards: [{i: 1, l: 3, r: 0}]}, up.getCall(0).args[0]
       assert.equal 1, o.turn.callCount
@@ -643,7 +641,7 @@ describe 'PokerPineappleOFCPlayer', ->
     beforeEach ->
       o.turn = sinon.spy()
       o.options.timebank = 0
-      o._turns_out_limit = -> false
+      o.options.out = false
 
     it 'default', ->
       o._activity 10
@@ -663,7 +661,7 @@ describe 'PokerPineappleOFCPlayer', ->
     describe 'timebank', ->
       beforeEach ->
         o.options.timebank = 5
-        o._turns_out_limit = sinon.fake.returns false
+        o.options.out = false
         o._activity(10)
         o._activity = sinon.spy()
         o.on 'timebank', spy
@@ -676,10 +674,9 @@ describe 'PokerPineappleOFCPlayer', ->
         assert.equal true, o._activity_timebank
         assert.equal 1, spy.callCount
         assert.deepEqual {timeout: 5}, spy.getCall(0).args[0]
-        assert.equal 1, o._turns_out_limit.callCount
 
       it 'out', ->
-        o._turns_out_limit = -> true
+        o.options.out = true
         clock.tick 1000 * 11
         assert.equal(1, o.turn.callCount)
         assert.equal(0, o._activity.callCount)
