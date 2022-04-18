@@ -601,12 +601,13 @@ describe 'PokerPineappleOFCPlayer', ->
       o.options.waiting = true
       o.options.position = 2
       o.options.cards = [ {i: 1, card: 'a'}, {i: 2, card: 'b'}, {i: 3, card: 'c'} ]
-      o.options.timebank = 4
+      o._timebank = sinon.fake.returns 4
       o.options.id = 5
       o._activity_timeout_left = sinon.fake.returns 10
 
     it 'default', ->
       assert.deepEqual {turn: {cards: [ {i: 1}, {i: 2}, {i: 3} ]}, position: 2, timeout: 10, timebank: 4, timebank_active: false}, o._get_ask()[0]
+      assert.equal 1, o._timebank.callCount
       assert.deepEqual {5: {turn: {cards: [ {i: 1, card: 'a'}, {i: 2, card: 'b'}, {i: 3, card: 'c'} ]}} }, o._get_ask()[1]
 
     it 'not_fantasyland', ->
@@ -687,11 +688,32 @@ describe 'PokerPineappleOFCPlayer', ->
         assert.equal(1, o.turn.callCount)
         assert.equal(0, o._activity.callCount)
 
+
+    describe '_timebank', ->
+      beforeEach ->
+        o._activity_timeout_start = new Date().getTime()
+        o._activity_timebank = true
+        o.options.timebank = 32
+        clock.tick 1000 * 5 + 789
+
+      it 'default', ->
+        assert.equal 27, o._timebank()
+
+      it 'waiting', ->
+        o._activity_timebank = null
+        assert.equal 32, o._timebank()
+
+      it 'timebank (0)', ->
+        clock.tick 100000
+        assert.equal 0, o._timebank()
+
+
     describe '_activity_clear', ->
       beforeEach ->
         o._activity_callback = 111
         o.options.timebank = 32
         o._activity_timeout_start = new Date().getTime()
+        o._timebank = sinon.fake.returns 10
         clock.tick 1000 * 5 + 789
 
       it 'default', ->
@@ -704,13 +726,8 @@ describe 'PokerPineappleOFCPlayer', ->
         o._activity_clear()
         assert.equal null, o._activity_timebank
         assert.equal 1, up.callCount
-        assert.deepEqual {timebank: 27}, up.getCall(0).args[0]
-
-      it 'timebank (0)', ->
-        o._activity_timebank = true
-        clock.tick 100000
-        o._activity_clear()
-        assert.equal 0, up.getCall(0).args[0].timebank
+        assert.deepEqual {timebank: 10}, up.getCall(0).args[0]
+        assert.equal 1, o._timebank.callCount
 
     it '_activity_timeout_left', ->
       o._activity_timeout = 10 * 1000
@@ -755,7 +772,7 @@ describe 'PokerPineappleOFCPlayer', ->
         timebank: 12
         fantasyland: true
         playing: true
-
+      o._timebank = sinon.fake.returns 10
       o._get_ask = sinon.fake.returns [{a: 'll', s: 'o'}, {5: {s: 'z', e: 'd'}}]
 
     it 'default', ->
@@ -766,13 +783,14 @@ describe 'PokerPineappleOFCPlayer', ->
         hand: [{i: 1}, {i: 2}]
         fold: [{i: 3}]
         out: true
-        timebank: 12
+        timebank: 10
         fantasyland: true
         playing: true
         ask: {a: 'll', s: 'o'}
       }, o.toJSON(100, [101])
       assert.equal 1, o._get_ask.callCount
       assert.deepEqual [101], o._get_ask.getCall(0).args[0]
+      assert.equal 1, o._timebank.callCount
 
     it 'get_ask missing', ->
       o._get_ask = -> null

@@ -225,7 +225,7 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
               return @options.cards
             @options.cards.map _omit_cards
         timeout: @_activity_timeout_left()
-        timebank: @options.timebank
+        timebank: @_timebank()
         timebank_active: !!@_activity_timebank
         position: @options.position
       }
@@ -263,12 +263,18 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
         return @options.rank.fantasyland
     }
 
+  _timebank: ->
+    if @_activity_timebank
+      timebank = @options.timebank - Math.floor (new Date().getTime() - @_activity_timeout_start) / 1000
+      if timebank > 0
+        return timebank
+      return 0
+    @options.timebank
+
   _activity_clear: ->
     if @_activity_timebank
       @options_update
-        timebank: do =>
-          timebank = @options.timebank - Math.floor (new Date().getTime() - @_activity_timeout_start) / 1000
-          return if timebank > 0 then timebank else 0
+        timebank: @_timebank()
     clearTimeout @_activity_callback
     @_activity_callback = null
     @_activity_timebank = null
@@ -295,7 +301,8 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     hero = user_id is @options.id
     ask = @_get_ask(not_fantasyland)
     Object.assign(
-      _pick @options, ['id', 'position', 'chips', 'out', 'timebank', 'fantasyland', 'playing', 'hand', 'fold']
+      _pick @options, ['id', 'position', 'chips', 'out', 'fantasyland', 'playing', 'hand', 'fold']
+      {timebank: @_timebank()}
       if hero then {hero}
       if !hero then {
         fold: @options.fold.map _omit_cards
