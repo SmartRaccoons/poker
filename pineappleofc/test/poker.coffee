@@ -390,7 +390,7 @@ describe 'PokerPineappleOFC', ->
       assert.equal true, !!o._round_prepare_timeout
       date = new Date().getTime()
       assert.equal true, new Date(date - 1000) <= o._round_prepare_start <= new Date(date + 1000)
-      clock.tick 10100
+      clock.tick 10600
       assert.equal null, o._round_prepare_timeout
       assert.equal 1, o._round.callCount
 
@@ -400,7 +400,7 @@ describe 'PokerPineappleOFC', ->
       o._round_prepare()
       o._round_prepare_cancel()
       assert.equal null, o._round_prepare_timeout
-      clock.tick 2100
+      clock.tick 10600
       assert.equal 0, o._round.callCount
       assert.equal 1, spy_cancel.callCount
 

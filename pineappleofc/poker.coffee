@@ -123,7 +123,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     @_round_prepare_timeout = setTimeout =>
       @_round_prepare_timeout = null
       @_round()
-    , @options.delay_round_prepare * 1000
+    , @options.delay_round_prepare * 1000 + 500
     @_round_prepare_emit()
 
   _round_prepare_emit: ->
