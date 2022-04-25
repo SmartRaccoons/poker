@@ -83,6 +83,7 @@ describe 'PokerPineappleOFC', ->
 
       assert.equal 0, PokerPineappleOFC::options_default.dealer
       assert.equal false, PokerPineappleOFC::options_default.running
+      assert.equal false, PokerPineappleOFC::options_default.showdown
       assert.equal false, PokerPineappleOFC::options_default.fantasyland
 
     it 'constructor', ->
@@ -142,6 +143,10 @@ describe 'PokerPineappleOFC', ->
       assert.equal 1, o.players.callCount
       assert.deepEqual {playing: true}, o.players.getCall(0).args[0]
 
+    it 'fantasyland', ->
+      players[1].options.fantasyland = true
+      assert.deepEqual [1], o._players_not_fantasyland()
+
     it 'fantasyland active', ->
       players[0].options.hand_full = false
       assert.deepEqual [2], o._players_not_fantasyland()
@@ -195,7 +200,6 @@ describe 'PokerPineappleOFC', ->
 
 
   describe 'player_add', ->
-    toJSON = null
     beforeEach ->
       o._player_position_free = sinon.fake.returns 0
       o.start = sinon.spy()
@@ -208,7 +212,10 @@ describe 'PokerPineappleOFC', ->
       o._players = [null, '1', '2']
       o.players = sinon.fake.returns [1, 2]
       o._round_prepare_timeout = null
-      Player::toJSON = toJSON = sinon.fake (user_id)-> if !user_id then {glo: 'bal'} else {'for': 'user'}
+      o._player_toJSON = sinon.fake (p, id)->
+        if id
+          return 'pjs_local_' + id
+        return 'pjs_global'
       o._round_prepare_emit = sinon.spy()
       o.on 'player:add', spy
 
@@ -229,10 +236,13 @@ describe 'PokerPineappleOFC', ->
     it 'event', ->
       o.player_add {id: 5}
       assert.equal 1, spy.callCount
-      assert.deepEqual {glo: 'bal'}, spy.getCall(0).args[0]
-      assert.deepEqual {5: {for: 'user'} }, spy.getCall(0).args[1]
-      assert.equal 2, toJSON.callCount
-      assert.equal 5, toJSON.getCall(1).args[0]
+      assert.equal 'pjs_global', spy.getCall(0).args[0]
+      assert.deepEqual {5: 'pjs_local_5' }, spy.getCall(0).args[1]
+      assert.equal 2, o._player_toJSON.callCount
+      assert.equal 5, o._player_toJSON.getCall(0).args[0].options.id
+      assert.equal undefined, o._player_toJSON.getCall(0).args[1]
+      assert.equal 5, o._player_toJSON.getCall(1).args[0].options.id
+      assert.equal 5, o._player_toJSON.getCall(1).args[1]
 
     it 'no place', ->
       o._player_position_free = sinon.fake.returns -1
@@ -721,6 +731,8 @@ describe 'PokerPineappleOFC', ->
       assert.equal true, player1.round_end.getCall(0).args[1]
       assert.equal 1, player2.round_end.callCount
       assert.deepEqual {chips_change: -15, points_change: -2}, player2.round_end.getCall(0).args[0]
+      assert.equal 1, up.callCount
+      assert.deepEqual {showdown: true}, up.getCall(0).args[0]
 
 
     describe 'remove on timeout', ->
@@ -732,6 +744,7 @@ describe 'PokerPineappleOFC', ->
 
       it 'default', ->
         o._round_end()
+        o.options_update = up = sinon.spy()
         o.players = sinon.fake -> [1, 2]
         clock.tick 3000
         assert.equal 1, o._player_remove.callCount
@@ -739,7 +752,7 @@ describe 'PokerPineappleOFC', ->
         assert.equal 1, round_finish.callCount
         assert.deepEqual {players_remove: [1], fantasyland: true}, round_finish.getCall(0).args[0]
         assert.equal 1, up.callCount
-        assert.deepEqual {fantasyland: true}, up.getCall(0).args[0]
+        assert.deepEqual {fantasyland: true, showdown: false}, up.getCall(0).args[0]
         assert.equal 1, o.players.callCount
         assert.equal 1, o._round_prepare.callCount
 
@@ -786,10 +799,11 @@ describe 'PokerPineappleOFC', ->
       player1.options.fantasyland = false
       o.options.turns_out_max = 2
       o._round_end()
+      o.options_update = up = sinon.spy()
       assert.equal false, 'fantasyland' of spy.getCall(0).args[0]
       clock.tick 3000
       assert.equal 1, o._player_remove.callCount
-      assert.deepEqual {running: false, fantasyland: false}, up.getCall(0).args[0]
+      assert.deepEqual {running: false, fantasyland: false, showdown: false}, up.getCall(0).args[0]
 
     it 'user turns_out', ->
       o.options.turns_out_max = 2
@@ -849,23 +863,48 @@ describe 'PokerPineappleOFC', ->
       assert.deepEqual {bet: 0}, o.options_update.getCall(0).args[0]
 
 
+  describe '_player_toJSON', ->
+    beforeEach ->
+      o.options.running = true
+      o.options.showdown = false
+      o._players_not_fantasyland = sinon.fake.returns 'nf'
+      player1.toJSON = sinon.fake.returns 'pj1'
+
+    it 'default', ->
+      assert.equal 'pj1', o._player_toJSON(player1, 'us')
+      assert.equal 1, o._players_not_fantasyland.callCount
+      assert.equal 1, player1.toJSON.callCount
+      assert.equal 'us', player1.toJSON.getCall(0).args[0]
+      assert.equal 'nf', player1.toJSON.getCall(0).args[1]
+      assert.equal true, player1.toJSON.getCall(0).args[2]
+
+    it 'not running', ->
+      o.options.running = false
+      o._player_toJSON(player1)
+      assert.equal false, player1.toJSON.getCall(0).args[2]
+
+    it 'showdown', ->
+      o.options.showdown = true
+      o._player_toJSON(player1)
+      assert.equal false, player1.toJSON.getCall(0).args[2]
+
+
   describe 'toJSON', ->
     beforeEach ->
       o.options.bet = 5
       o.options.dealer = 2
       o.options.running = true
       o.options.fantasyland = true
-      o._players_not_fantasyland = sinon.fake.returns 'nf'
       player1.toJSON = sinon.fake.returns 'pj1'
       player2.toJSON = sinon.fake.returns 'pj2'
       o._players = [player1, null, player2]
+      _player_toJSON = ['pj1', 'pj2']
+      o._player_toJSON = sinon.fake -> _player_toJSON.shift()
 
     it 'default', ->
       assert.deepEqual {bet: 5, dealer: 2, running: true, fantasyland: true, players: ['pj1', null, 'pj2']}, o.toJSON('us')
-      assert.equal 1, o._players_not_fantasyland.callCount
-      assert.equal 1, player1.toJSON.callCount
-      assert.equal 'us', player1.toJSON.getCall(0).args[0]
-      assert.equal 'nf', player1.toJSON.getCall(0).args[1]
-      assert.equal 1, player2.toJSON.callCount
-      assert.equal 'us', player2.toJSON.getCall(0).args[0]
-      assert.equal 'nf', player2.toJSON.getCall(0).args[1]
+      assert.equal 2, o._player_toJSON.callCount
+      assert.deepEqual player1, o._player_toJSON.getCall(0).args[0]
+      assert.deepEqual 'us', o._player_toJSON.getCall(0).args[1]
+      assert.deepEqual player2, o._player_toJSON.getCall(1).args[0]
+      assert.deepEqual 'us', o._player_toJSON.getCall(1).args[1]

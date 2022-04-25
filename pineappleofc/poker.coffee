@@ -27,6 +27,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
 
     dealer: 0
     running: false
+    showdown: false
     fantasyland: false
 
   constructor: (options = {})->
@@ -78,7 +79,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
       players = @players({playing: true, fantasyland: false}).map (p)-> _pick p.options, ['hand', 'position']
       @emit.apply @, ['turn'].concat( player._get_turn(turn, @_players_not_fantasyland(), players) )
       if player.options.fantasyland then @_progress_check() else @_progress(player.options.position)
-    @emit 'player:add', player.toJSON(), {[player.options.id]: player.toJSON(player.options.id)}
+    @emit 'player:add', @_player_toJSON(player), {[player.options.id]: @_player_toJSON(player, player.options.id)}
     if !@options.running and @options.autostart and !@_round_prepare_timeout and @players().length >= 2
       @start()
     else if @_round_prepare_timeout
@@ -99,7 +100,8 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     # if array empty - no users in the fantasyland with not finished hand
     players = @players({playing: true})
     not_fantasyland = players
-    .filter (p)-> !p.options.fantasyland or p.options.hand_full
+    .filter (p)->
+      return !p.options.fantasyland or p.options.hand_full
     .map (p)-> p.options.id
     if not_fantasyland.length is players.length
       return []
@@ -233,7 +235,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
       players_remove = players.filter (p)=>
         (p.chips + p.chips_change) is 0 or ( @options.turns_out_max and @options.turns_out_max <= @_players[p.position].options.turns_out )
     players_remove = players_remove.map (p)=> @_players[p.position]
-
+    @options_update {showdown: true}
     @emit 'round_end', Object.assign(
       {
         players: players.map (p)=>
@@ -242,9 +244,10 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
       if fantasyland then {fantasyland}
       if rake then {rake}
     )
+
     setTimeout =>
+      @options_update Object.assign( {fantasyland, showdown: false}, if !fantasyland then { running: false } )
       players_remove.forEach (p)=> @_player_remove(p)
-      @options_update Object.assign( {fantasyland}, if !fantasyland then { running: false } )
       @emit 'round_end_timeout', Object.assign(
         {players_remove: players_remove.map (p)-> p.options.id}
         if fantasyland then {fantasyland}
@@ -269,11 +272,14 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
   round_last: ->
     @_round_last = true
 
+  _player_toJSON: (player, user_id)->
+    player.toJSON user_id, @_players_not_fantasyland(), @options.running and !@options.showdown
+
   toJSON: (user_id = null)->
-    not_fantasyland = @_players_not_fantasyland()
     Object.assign(
       _pick @options, [ 'bet', 'dealer', 'running', 'fantasyland' ]
       {
-        players: @_players.map (p)-> p and p.toJSON(user_id, not_fantasyland)
+        players: @_players.map (p)=>
+          p and @_player_toJSON(p, user_id)
       }
     )

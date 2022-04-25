@@ -221,9 +221,6 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
             if hide
               return @options.cards.map _omit_cards
             return @options.cards
-            if @options.cards.length is 5 and not_fantasyland.length is 0
-              return @options.cards
-            @options.cards.map _omit_cards
         timeout: @_activity_timeout_left()
         timebank: @_timebank()
         timebank_active: !!@_activity_timebank
@@ -297,19 +294,22 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
   out: ({out})->
     @options_update {out: !!out}
 
-  toJSON: (user_id, not_fantasyland)->
+  toJSON: (user_id, not_fantasyland, hide_fantasyland)->
     hero = user_id is @options.id
     ask = @_get_ask(not_fantasyland)
     Object.assign(
-      _pick @options, ['id', 'position', 'chips', 'out', 'fantasyland', 'playing', 'hand', 'fold']
-      {timebank: @_timebank()}
-      if hero then {hero}
-      if !hero then {
+      _pick @options, ['id', 'position', 'chips', 'out', 'fantasyland', 'playing']
+      {
+        hand: @options.hand.map _omit_cards
         fold: @options.fold.map _omit_cards
       }
-      if !hero and not_fantasyland and not_fantasyland.length > 0 and !( user_id in not_fantasyland ) then {
-        hand: @options.hand.map _omit_cards
-      }
+      {timebank: @_timebank()}
+      if hero then {hero}
+      if hero then {fold: @options.fold}
+      if hero or (
+        ( not_fantasyland.length is 0 or user_id in not_fantasyland ) and !( @options.fantasyland and hide_fantasyland )
+      )
+      then {hand: @options.hand}
       if ask then {
         ask: Object.assign(
           {}

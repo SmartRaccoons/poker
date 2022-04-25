@@ -770,7 +770,7 @@ describe 'PokerPineappleOFCPlayer', ->
         fold: [{i: 3, card: '2c'}]
         out: true
         timebank: 12
-        fantasyland: true
+        fantasyland: false
         playing: true
       o._timebank = sinon.fake.returns 10
       o._get_ask = sinon.fake.returns [{a: 'll', s: 'o'}, {5: {s: 'z', e: 'd'}}]
@@ -784,7 +784,7 @@ describe 'PokerPineappleOFCPlayer', ->
         fold: [{i: 3}]
         out: true
         timebank: 10
-        fantasyland: true
+        fantasyland: false
         playing: true
         ask: {a: 'll', s: 'o'}
       }, o.toJSON(100, [101])
@@ -796,28 +796,30 @@ describe 'PokerPineappleOFCPlayer', ->
       o._get_ask = -> null
       assert.equal false, 'ask' of o.toJSON(100, [101])
 
-    it 'user_id match', ->
-      json = o.toJSON(1, [101])
+    it 'hero', ->
+      json = o.toJSON(1, [])
       assert.equal true, json.hero
       assert.deepEqual o.options.hand, json.hand
       assert.deepEqual o.options.fold, json.fold
 
     it 'ask match', ->
-      assert.deepEqual {a: 'll', s: 'z', e: 'd'}, o.toJSON(5, [101]).ask
+      assert.deepEqual {a: 'll', s: 'z', e: 'd'}, o.toJSON(5, []).ask
 
-    it 'user_id missing', ->
-      assert.deepEqual {a: 'll', s: 'o'}, o.toJSON(null, null).ask
+    it 'user_id null', ->
+      assert.deepEqual {a: 'll', s: 'o'}, o.toJSON(null, []).ask
 
-    it 'not in fantasyland', ->
+    it 'fantasyland active (user not in fatansyland)', ->
       json = o.toJSON(2, [2])
       assert.deepEqual o.options.hand, json.hand
-      assert.deepEqual [{i: 3}], json.fold
 
-    it 'no fantasyland', ->
+    it 'fantasyland inactive', ->
       json = o.toJSON(2, [])
       assert.deepEqual o.options.hand, json.hand
-      assert.deepEqual [{i: 3}], json.fold
 
-    it 'no fantasyland (null)', ->
-      json = o.toJSON(2)
-      assert.deepEqual o.options.hand, json.hand
+    it 'fantasylanders hide', ->
+      o.options.fantasyland = true
+      assert.deepEqual {i: 1}, o.toJSON(2, [], true).hand[0]
+
+    it 'fantasylanders hide (ignore)', ->
+      o.options.fantasyland = true
+      assert.deepEqual o.options.hand[0], o.toJSON(2, []).hand[0]
