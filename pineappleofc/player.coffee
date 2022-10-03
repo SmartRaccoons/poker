@@ -23,6 +23,7 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     rounds: 0
     turns_out: 0
     fantasyland: false
+    fantasyland_only: false
     cards: []
     timebank: 0
     timeout: 0
@@ -47,6 +48,9 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
         @options_update {turns_out: 0}
 
   options_round_reset: ['chips_change', 'points_change', 'hand', 'hand_full', 'hand_length', 'fold', 'cards', 'waiting']
+
+  constructor: (options = {})->
+    super Object.assign {}, (if options.fantasyland_only then { fantasyland: true } ), options
 
   filter: (params)->
     for k, v of params
@@ -251,9 +255,10 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
       @turn()
 
   round_end: ({chips_change, points_change}, players_enough)->
-    @options_update {
+    @options_update Object.assign {
       chips_change, points_change
       chips: @options.chips + chips_change
+    }, if !@options.fantasyland_only then {
       fantasyland: do =>
         if !players_enough or @options.chips + chips_change <= 0
           return false
@@ -298,7 +303,7 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     hero = user_id is @options.id
     ask = @_get_ask(not_fantasyland)
     Object.assign(
-      _pick @options, ['id', 'position', 'chips', 'out', 'fantasyland', 'playing']
+      _pick @options, ['id', 'position', 'chips', 'out', 'playing'].concat( if !@options.fantasyland_only then ['fantasyland'] else [] )
       {
         hand: @options.hand.map _omit_cards
         fold: @options.fold.map _omit_cards

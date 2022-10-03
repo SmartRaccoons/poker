@@ -24,6 +24,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     autostart: true
     turns_out_max: 0 #0 - unlimited
     turns_out_limit: 3
+    fantasyland_only: false
 
     dealer: 0
     running: false
@@ -63,7 +64,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     position = @_player_position_free()
     if position is -1
       return false
-    player = new (@Player)(Object.assign( _pick(@options, ['timeout', 'timeout_first', 'timeout_fantasyland', 'delay_player_turn', 'turns_out_limit']), {position}, data))
+    player = new (@Player)(Object.assign( _pick(@options, ['timeout', 'timeout_first', 'timeout_fantasyland', 'delay_player_turn', 'turns_out_limit', 'fantasyland_only']), {position}, data))
     @_players[position] = player
     @_players_id[data.id] = position
     ['out', 'timebank'].forEach (ev)=>
@@ -130,7 +131,10 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
 
   _round_prepare_emit: ->
     delay = Math.floor( @options.delay_round_prepare - (new Date().getTime() - @_round_prepare_start.getTime() ) / 1000 )
-    @emit 'round_prepare', {delay: ( if delay <= 0 then 0 else delay ), fantasyland: @options.fantasyland}
+    @emit 'round_prepare', Object.assign(
+      {delay: ( if delay <= 0 then 0 else delay ) }
+      if !@options.fantasyland_only then {fantasyland: @options.fantasyland}
+    )
 
   _round_prepare_cancel: ->
     clearTimeout @_round_prepare_timeout
@@ -230,16 +234,17 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     players_remove = players.filter (p)=> (p.chips + p.chips_change) <= 0
     players.forEach (p)=>
       @_players[p.position].round_end _pick(p, ['chips_change', 'points_change']), players.length - players_remove.length >= 2
-    fantasyland = !!( players.find (p)=> @_players[p.position].options.fantasyland )
+    fantasyland = !@options.fantasyland_only and !!( players.find (p)=> @_players[p.position].options.fantasyland )
     if !fantasyland
       players_remove = players.filter (p)=>
         (p.chips + p.chips_change) is 0 or ( @options.turns_out_max and @options.turns_out_max <= @_players[p.position].options.turns_out )
     players_remove = players_remove.map (p)=> @_players[p.position]
     @options_update {showdown: true}
+    _pick_options = ['hand', 'chips', 'timebank'].concat if !@options.fantasyland_only then ['fantasyland'] else []
     @emit 'round_end', Object.assign(
       {
         players: players.map (p)=>
-          Object.assign {}, p, _pick(@_players[p.position].options, ['fantasyland', 'hand', 'chips', 'timebank'])
+          Object.assign {}, p, _pick(@_players[p.position].options, _pick_options)
       }
       if fantasyland then {fantasyland}
       if rake then {rake}
@@ -277,7 +282,7 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
 
   toJSON: (user_id = null)->
     Object.assign(
-      _pick @options, [ 'bet', 'dealer', 'running', 'fantasyland' ]
+      _pick @options, ['bet', 'dealer', 'running'].concat( if !@options.fantasyland_only then ['fantasyland'] else [] )
       {
         players: @_players.map (p)=>
           p and @_player_toJSON(p, user_id)

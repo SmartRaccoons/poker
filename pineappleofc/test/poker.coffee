@@ -85,6 +85,7 @@ describe 'PokerPineappleOFC', ->
       assert.equal false, PokerPineappleOFC::options_default.running
       assert.equal false, PokerPineappleOFC::options_default.showdown
       assert.equal false, PokerPineappleOFC::options_default.fantasyland
+      assert.equal false, PokerPineappleOFC::options_default.fantasyland_only
 
     it 'constructor', ->
       assert.deepEqual [null, null, null], o._players
@@ -209,6 +210,7 @@ describe 'PokerPineappleOFC', ->
       o.options.timeout_fantasyland = 12
       o.options.delay_player_turn = 111
       o.options.turns_out_limit = 5
+      o.options.fantasyland_only = true
       o._players = [null, '1', '2']
       o.players = sinon.fake.returns [1, 2]
       o._round_prepare_timeout = null
@@ -228,6 +230,7 @@ describe 'PokerPineappleOFC', ->
       assert.equal(12, o._players[0].options.timeout_fantasyland)
       assert.equal(111, o._players[0].options.delay_player_turn)
       assert.equal(5, o._players[0].options.turns_out_limit)
+      assert.equal(true, o._players[0].options.fantasyland_only)
       assert.deepEqual({5: 0}, o._players_id)
       assert.equal 1, o.start.callCount
       assert.equal 1, o.players.callCount
@@ -438,6 +441,12 @@ describe 'PokerPineappleOFC', ->
       o._round_prepare()
       assert.equal 1, o._round.callCount
       assert.equal 0, o._round_prepare_emit.callCount
+
+    it 'fantasyland_only', ->
+      o._round_prepare_start = new Date()
+      o.options.fantasyland_only = true
+      o._round_prepare_emit()
+      assert.equal false, 'fantasyland' of spy.getCall(0).args[0]
 
 
   describe '_round', ->
@@ -734,6 +743,12 @@ describe 'PokerPineappleOFC', ->
       assert.equal 1, up.callCount
       assert.deepEqual {showdown: true}, up.getCall(0).args[0]
 
+    it 'fantasyland_only', ->
+      o.options.fantasyland_only = true
+      o._round_end()
+      assert.equal false, 'fantasyland' of spy.getCall(0).args[0].players[0]
+      assert.equal false, 'fantasyland' of spy.getCall(0).args[0].players[1]
+
 
     describe 'remove on timeout', ->
       round_finish = null
@@ -758,6 +773,13 @@ describe 'PokerPineappleOFC', ->
 
       it 'no fantasyland', ->
         player1.options.fantasyland = false
+        o._round_end()
+        o.players = sinon.fake -> [1, 2]
+        clock.tick 3000
+        assert.equal false, 'fantasyland' in Object.keys(round_finish.getCall(0).args[0])
+
+      it 'fantasyland_only', ->
+        o.options.fantasyland_only = true
         o._round_end()
         o.players = sinon.fake -> [1, 2]
         clock.tick 3000
@@ -908,3 +930,7 @@ describe 'PokerPineappleOFC', ->
       assert.deepEqual 'us', o._player_toJSON.getCall(0).args[1]
       assert.deepEqual player2, o._player_toJSON.getCall(1).args[0]
       assert.deepEqual 'us', o._player_toJSON.getCall(1).args[1]
+
+    it 'fantasyland_only', ->
+      o.options.fantasyland_only = true
+      assert.equal false, 'fantasyland' of o.toJSON('us')

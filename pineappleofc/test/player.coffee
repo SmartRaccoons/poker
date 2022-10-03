@@ -50,6 +50,7 @@ describe 'PokerPineappleOFCPlayer', ->
       assert.equal 0, PokerPineappleOFCPlayer::options_default.rounds
       assert.equal 0, PokerPineappleOFCPlayer::options_default.turns_out
       assert.equal false, PokerPineappleOFCPlayer::options_default.fantasyland
+      assert.equal false, PokerPineappleOFCPlayer::options_default.fantasyland_only
       assert.deepEqual [], PokerPineappleOFCPlayer::options_default.cards
       assert.equal 0, PokerPineappleOFCPlayer::options_default.timebank
       assert.equal 0, PokerPineappleOFCPlayer::options_default.timeout
@@ -62,6 +63,14 @@ describe 'PokerPineappleOFCPlayer', ->
 
     it 'options_round_reset', ->
       assert.deepEqual ['chips_change', 'points_change', 'hand', 'hand_full', 'hand_length', 'fold', 'cards', 'waiting'], PokerPineappleOFCPlayer::options_round_reset
+
+    it 'constructor', ->
+      o = new PokerPineappleOFCPlayer({b: 'rum'})
+      assert.equal false, o.options.fantasyland
+      assert.equal 'rum', o.options.b
+      o = new PokerPineappleOFCPlayer({fantasyland_only: true, b: 'rum'})
+      assert.equal true, o.options.fantasyland
+      assert.equal 'rum', o.options.b
 
     it 'filter', ->
       o.options.out = true
@@ -759,6 +768,11 @@ describe 'PokerPineappleOFCPlayer', ->
       o.round_end({chips_change: -50, points_change: 2}, true)
       assert.equal false, up.getCall(0).args[0].fantasyland
 
+    it 'fantasyland_only', ->
+      o.options.fantasyland_only = true
+      o.round_end({chips_change: 5, points_change: 2}, true)
+      assert.equal false, 'fantasyland' of up.getCall(0).args[0]
+
 
   describe 'toJSON', ->
     beforeEach ->
@@ -791,6 +805,10 @@ describe 'PokerPineappleOFCPlayer', ->
       assert.equal 1, o._get_ask.callCount
       assert.deepEqual [101], o._get_ask.getCall(0).args[0]
       assert.equal 1, o._timebank.callCount
+
+    it 'fantasyland_only', ->
+      o.options.fantasyland_only = true
+      assert.equal false, 'fantasyland' of o.toJSON(100, [101])
 
     it 'get_ask missing', ->
       o._get_ask = -> null
