@@ -205,7 +205,17 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     @_ask_date = new Date()
     waiting = !@options.out or @options.fantasyland
     @options_update Object.assign(
-      {cards: cards.map (card, r)-> Object.assign({}, card, {r, l: 3}) }
+      {cards: do =>
+        if !@options.fantasyland_only
+          return cards.map (card, r)-> Object.assign({}, card, {r, l: 3})
+        l_prev = null
+        r = 0
+        return cards.map (card, i)->
+          l = if i < 5 then 2 else if i < 10 then 1 else if i < 13 then 0 else 3
+          r = if l isnt l_prev then 0 else r + 1
+          l_prev = l
+          Object.assign {}, card, {r, l}
+      }
       if waiting then {waiting}
     )
     if !waiting

@@ -604,6 +604,27 @@ describe 'PokerPineappleOFCPlayer', ->
       o.ask({cards: []})
       assert.equal 15, o._activity.getCall(0).args[0]
 
+    it 'fantasyland_only', ->
+      o.options.fantasyland_only = true
+      o.ask {cards: [0..14].map (i)-> {i} }
+      assert.deepEqual [
+        {i: 0, l: 2, r: 0}
+        {i: 1, l: 2, r: 1}
+        {i: 2, l: 2, r: 2}
+        {i: 3, l: 2, r: 3}
+        {i: 4, l: 2, r: 4}
+        {i: 5, l: 1, r: 0}
+        {i: 6, l: 1, r: 1}
+        {i: 7, l: 1, r: 2}
+        {i: 8, l: 1, r: 3}
+        {i: 9, l: 1, r: 4}
+        {i: 10, l: 0, r: 0}
+        {i: 11, l: 0, r: 1}
+        {i: 12, l: 0, r: 2}
+        {i: 13, l: 3, r: 0}
+        {i: 14, l: 3, r: 1}
+      ], up.getCall(0).args[0].cards
+
 
   describe '_get_ask', ->
     beforeEach ->
