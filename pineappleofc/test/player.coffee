@@ -505,6 +505,8 @@ describe 'PokerPineappleOFCPlayer', ->
       assert.deepEqual {turns_out: 0}, up.getCall(1).args[0]
       assert.equal 1, spy.callCount
       assert.deepEqual {cards: 'c', fold: 'f'}, spy.getCall(0).args[0]
+      assert.equal 1, o._turn_cards.callCount
+      assert.deepEqual {cards: 'c'}, o._turn_cards.getCall(0).args[0]
 
     it 'auto turn', ->
       o.options.waiting = false
@@ -512,13 +514,18 @@ describe 'PokerPineappleOFCPlayer', ->
       assert.equal 1, up.callCount
       assert.deepEqual {turns_out: 2}, up.getCall(0).args[0]
       assert.equal 0, o._activity_clear.callCount
+      assert.deepEqual {cards: undefined}, o._turn_cards.getCall(0).args[0]
 
     it 'delay', ->
       o.options.delay_player_turn = 100
       o._ask_date = new Date()
       o.turn()
+      assert.equal 1, up.callCount
+      assert.equal 0, o._turn_cards.callCount
       assert.equal 0, spy.callCount
       clock.tick(200)
+      assert.equal 2, up.callCount
+      assert.equal 1, o._turn_cards.callCount
       assert.equal 1, spy.callCount
 
 

@@ -165,10 +165,11 @@ module.exports.PokerPineappleOFCPlayer = class PokerPineappleOFCPlayer extends D
     if @options.waiting
       @_activity_clear()
       @options_update {waiting: false}
-    @options_update
-      turns_out: if !params then @options.turns_out + 1 else 0
-    turn = @_turn_cards {cards: if params then params.cards}
-    exe = => @emit 'turn', turn
+    exe = =>
+      @options_update
+        turns_out: if !params then @options.turns_out + 1 else 0
+      turn = @_turn_cards {cards: if params then params.cards}
+      @emit 'turn', turn
     delay = @options.delay_player_turn + @_ask_date.getTime() - new Date().getTime()
     if delay <= 0
       return exe()
