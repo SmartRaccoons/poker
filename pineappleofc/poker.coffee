@@ -199,35 +199,51 @@ module.exports.PokerPineappleOFC = class PokerPineappleOFC extends Default
     @_players[@_players_id[user_id]].turn_temp turn
 
   _calculate_pot: (players)->
-    bet = @options.bet
-    pot_total = 0
-    points_total = 0
-    players.forEach (p)->
-      if p.points_change > 0
-        points_total += p.points_change
-        return
-      p.chips_change = p.points_change * bet
-      if p.chips < -p.chips_change
-        p.chips_change = -p.chips
-      pot_total += -p.chips_change
+    chips_factor = players.length - 1
+    points_total = players.reduce (acc, p)->
+      acc + (if p.points_change > 0 then p.points_change else 0)
+    , 0
+    change = players.map -> 0
+    change_chips = (i, chips_change)->
+      chips_change_value = do ->
+        for [mod, factor] in [[-1, 1], [1, chips_factor]]
+          if mod * chips_change > 0
+            if mod * (change[i] + chips_change) > factor * players[i].chips
+              return mod * factor * players[i].chips - change[i]
+        return chips_change
+      change[i] += chips_change_value
+      return chips_change_value
+    players.forEach (p, i)=>
+      change_chips(i, p.points_change * @options.bet)
+    chips_total = do =>
+      Math.min.apply null, players.reduce( (acc, p, i)->
+        if p.points_change < 0
+          acc[0] += -change[i]
+        else
+          acc[1] += change[i]
+        acc
+      , [0, 0] )
     rake = 0
     if @options.rake
-      rake = Math.floor(pot_total * @options.rake.percent/100)
+      rake = Math.floor(chips_total * @options.rake.percent/100)
       if rake > @options.rake.cap
         rake = @options.rake.cap
-    pot = pot_total - rake
-    pot_new = 0
-    pot_winner_max_position = 0
-    pot_winner_max_chips = 0
-    players.forEach (p, position)->
-      if p.points_change > 0
-        p.chips_change = Math.floor( pot * p.points_change / points_total )
-        pot_new += p.chips_change
-        if pot_winner_max_chips < p.chips_change
-          pot_winner_max_chips = p.chips_change
-          pot_winner_max_position = position
-    players[pot_winner_max_position].chips_change += pot - pot_new
-    return Object.assign( {players}, if rake then {rake} )
+    do =>
+      change = players.map -> 0
+      for [mod, factor] in [[-1, 1], [1, chips_factor]]
+        chips_left = if mod > 0 then chips_total - rake else chips_total
+        while chips_left > 0
+          chips_changed = 0
+          players.forEach ({chips, points_change}, i)->
+            if mod * points_change > 0 and mod * change[i] < chips * factor
+              chips_new = Math.ceil( (mod * points_change / points_total) * chips_left )
+              if chips_new + chips_changed > chips_left
+                chips_new = chips_left - chips_changed
+              chips_new_actual = change_chips i, mod * chips_new
+              chips_changed += mod * chips_new_actual
+          chips_left -= chips_changed
+    players.forEach (p, i)-> p.chips_change = change[i]
+    Object.assign( {players}, if rake then {rake} )
 
   _round_end: ->
     {rake, players} = @_calculate_pot Rank::compare @players({playing: true}).map (p)-> _pick p.options, ['chips', 'rank', 'position']
