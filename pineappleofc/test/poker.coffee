@@ -653,40 +653,130 @@ describe 'PokerPineappleOFC', ->
 
   describe '_calculate_pot', ->
     fn = null
-    numbers = null
+    num = null
     beforeEach ->
       o.options.bet = 5
-      o.options.rake =
-        percent: 3.5
-        cap: 5
       fn = o._calculate_pot.bind(o)
-      numbers = (p)->
-        {rake: p.rake, players: p.players.map (p)-> p.chips_change}
-
+      num = (p)->
+        {...p, players: p.players.map ({chips_change})-> chips_change}
 
     it 'default', ->
+      o.options.bet = 1
       assert.deepEqual {
-        rake: 3
+        players: [
+          {chips_change: -10, chips: 100, points_change: -10}
+          {chips_change: -5, chips: 100, points_change: -5}
+          {chips_change: 15, chips: 200, points_change: 15}
+        ]
+      }, fn([ {chips: 100, points_change: -10}, {chips: 100, points_change: -5}, {chips: 200, points_change: 15} ])
+      assert.deepEqual {
+        players: [-10, -5, 15]
+      }, num fn([ {chips: 100, points_change: -10}, {chips: 100, points_change: -5}, {chips: 200, points_change: 15} ])
+
+    it 'bet x5', ->
+      assert.deepEqual {
         players: [
           {chips_change: -50, chips: 100, points_change: -10}
-          {chips_change: -50, chips: 100, points_change: -10}
-          {chips_change: 97, chips: 200, points_change: 20}
+          {chips_change: -25, chips: 100, points_change: -5}
+          {chips_change: 75, chips: 200, points_change: 15}
         ]
-      }, fn([ {chips: 100, points_change: -10}, {chips: 100, points_change: -10}, {chips: 200, points_change: 20} ])
+      }, fn([ {chips: 100, points_change: -10}, {chips: 100, points_change: -5}, {chips: 200, points_change: 15} ])
 
-    it 'chips change', ->
-      assert.deepEqual {rake: 3, players: [-100, -10, 107]}, numbers fn([ {chips: 100, points_change: -21}, {chips: 100, points_change: -2}, {chips: 200, points_change: 23} ])
-      assert.deepEqual {rake: 3, players: [-100, 4, 93]}, numbers fn([ {chips: 100, points_change: -21}, {chips: 100, points_change: 1}, {chips: 100, points_change: 20} ])
-      assert.deepEqual {rake: 1, players: [-13, -20, 32]}, numbers fn([ {chips: 13, points_change: -8}, {chips: 20, points_change: -8}, {chips: 100, points_change: 16} ])
+    it 'win low chips', ->
+      assert.deepEqual {
+        players: [  -28, -14, 42 ]
+      }, num fn([ {chips: 100, points_change: -10}, {chips: 100, points_change: -5}, {chips: 21, points_change: 15} ])
 
-    it 'rake', ->
-      assert.equal 3, fn([ {chips: 1000, points_change: -20}, {chips: 100, points_change: 20} ]).rake
-      assert.equal 5, fn([ {chips: 1000, points_change: -40}, {chips: 100, points_change: 40} ]).rake
-      assert.equal 5, fn([ {chips: 1000, points_change: -50}, {chips: 100, points_change: 50} ]).rake
+    it 'win low chips (round to near)', ->
+      assert.deepEqual {
+        players: [  -27, -13, 40 ]
+      }, num fn([ {chips: 100, points_change: -10}, {chips: 100, points_change: -5}, {chips: 20, points_change: 15} ])
 
-    it 'no rake', ->
-      o.options.rake = null
-      assert.equal false, 'rake' of fn([ {chips: 100, points_change: -20}, {chips: 100, points_change: -2}, {chips: 200, points_change: 22} ])
+    it 'win low chips (round to near + not enough)', ->
+      assert.deepEqual {
+        players: [  -16, -24, 40 ]
+      }, num fn([ {chips: 16, points_change: -10}, {chips: 100, points_change: -5}, {chips: 20, points_change: 15} ])
+
+    it 'win low chips (round to near + not enough 3 players)', ->
+      assert.deepEqual {
+        players: [  -6, -12, -12, 30 ]
+      }, num fn([ {chips: 6, points_change: -10}, {chips: 100, points_change: -5}, {chips: 100, points_change: -5}, {chips: 10, points_change: 25} ])
+
+    it 'win low chips (3 winners)', ->
+      assert.deepEqual {
+        players: [  -95, 30, 50, 15 ]
+      }, num fn([ {chips: 1000, points_change: -50}, {chips: 10, points_change: 10}, {chips: 100, points_change: 10}, {chips: 5, points_change: 25} ])
+
+    it 'win low chips (3 winners 1 looser only some chips)', ->
+      assert.deepEqual {
+        players: [  -50, 18, 17, 15 ]
+      }, num fn([ {chips: 50, points_change: -50}, {chips: 10, points_change: 10}, {chips: 100, points_change: 10}, {chips: 5, points_change: 25} ])
+
+    describe 'rake', ->
+      beforeEach ->
+        o.options.rake =
+          percent: 3.5
+          cap: 5
+
+      it 'default', ->
+        assert.deepEqual {
+          rake: 2
+          players: [
+            {chips_change: -50, chips: 100, points_change: -10}
+            {chips_change: -25, chips: 100, points_change: -5}
+            {chips_change: 73, chips: 200, points_change: 15}
+          ]
+        }, fn([ {chips: 100, points_change: -10}, {chips: 100, points_change: -5}, {chips: 200, points_change: 15} ])
+
+      it 'cap', ->
+        assert.deepEqual {
+          rake: 5
+          players: [ -500, -250, 745 ]
+        }, num fn([ {chips: 1000, points_change: -100}, {chips: 1000, points_change: -50}, {chips: 1000, points_change: 150} ])
+
+      it 'cap complicated winners', ->
+        assert.deepEqual {
+          rake: 1
+          players: [  -50, 17, 17, 15 ]
+        }, num fn([ {chips: 50, points_change: -50}, {chips: 10, points_change: 10}, {chips: 100, points_change: 10}, {chips: 5, points_change: 25} ])
+
+
+  # describe '_calculate_pot old', ->
+  #   fn = null
+  #   numbers = null
+  #   beforeEach ->
+  #     o.options.bet = 5
+  #     o.options.rake =
+  #       percent: 3.5
+  #       cap: 5
+  #     fn = o._calculate_pot.bind(o)
+  #     numbers = (p)->
+  #       {rake: p.rake, players: p.players.map (p)-> p.chips_change}
+
+
+  #   it 'default', ->
+  #     assert.deepEqual {
+  #       rake: 3
+  #       players: [
+  #         {chips_change: -50, chips: 100, points_change: -10}
+  #         {chips_change: -50, chips: 100, points_change: -10}
+  #         {chips_change: 97, chips: 200, points_change: 20}
+  #       ]
+  #     }, fn([ {chips: 100, points_change: -10}, {chips: 100, points_change: -10}, {chips: 200, points_change: 20} ])
+
+  #   it 'chips change', ->
+  #     assert.deepEqual {rake: 3, players: [-100, -10, 107]}, numbers fn([ {chips: 100, points_change: -21}, {chips: 100, points_change: -2}, {chips: 200, points_change: 23} ])
+  #     assert.deepEqual {rake: 3, players: [-100, 5, 92]}, numbers fn([ {chips: 100, points_change: -21}, {chips: 100, points_change: 1}, {chips: 100, points_change: 20} ])
+  #     assert.deepEqual {rake: 1, players: [-13, -20, 32]}, numbers fn([ {chips: 13, points_change: -8}, {chips: 20, points_change: -8}, {chips: 100, points_change: 16} ])
+
+  #   it 'rake', ->
+  #     assert.equal 3, fn([ {chips: 1000, points_change: -20}, {chips: 100, points_change: 20} ]).rake
+  #     assert.equal 5, fn([ {chips: 1000, points_change: -40}, {chips: 1000, points_change: 40} ]).rake
+  #     assert.equal 5, fn([ {chips: 1000, points_change: -50}, {chips: 1000, points_change: 50} ]).rake
+
+  #   it 'no rake', ->
+  #     o.options.rake = null
+  #     assert.equal false, 'rake' of fn([ {chips: 100, points_change: -20}, {chips: 100, points_change: -2}, {chips: 200, points_change: 22} ])
 
 
   describe '_round_end', ->
